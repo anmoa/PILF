@@ -1,0 +1,107 @@
+Logging output to: output/ViT/log\20250627-062116-gbp-moe-vit-1-2-sigma-rehearsal.log
+Loading checkpoint from: output/ViT/checkpoints/moe_16_4_vit-single-epoch_20.pth
+Model: gbp-moe-vit-1-2-sigma-rehearsal
+Total Trainable Parameters: 1.23M
+
+==================================================
+          STAGE 2 (Rehearsal): 2x(4 SVHN + 1 CIFAR) + 2 SVHN Overtime
+==================================================
+
+
+--- Cycle 1/2 ---
+
+--- Training on SVHN for 4 epochs ---
+
+--- Epoch 21 ---
+Train Epoch 21 Summary: Avg loss: 2.4856, Avg Accuracy: 18.03%, Avg PI: 0.3743, Avg Surprise: 1.8683, Avg Tau: 2.0892
+Decision Stats: Consolidate: 90.3%, Ignore: 0.0%, Reject: 9.7%
+CIFAR10_Val set: Avg loss: 2.3645, Accuracy: 9.24%, Avg PI: 0.2167, Avg Surprise: 1.9827, Avg Tau: 2.1879
+SVHN_Val set: Avg loss: 2.1361, Accuracy: 26.29%, Avg PI: 0.4358, Avg Surprise: 0.6872, Avg Tau: 2.1844
+
+--- Epoch 22 ---
+Train Epoch 22 Summary: Avg loss: 2.0116, Avg Accuracy: 28.63%, Avg PI: 0.3155, Avg Surprise: 1.4172, Avg Tau: 2.0083
+Decision Stats: Consolidate: 83.3%, Ignore: 5.6%, Reject: 11.1%
+CIFAR10_Val set: Avg loss: 2.6837, Accuracy: 14.97%, Avg PI: 0.0396, Avg Surprise: 5.1199, Avg Tau: 1.9513
+SVHN_Val set: Avg loss: 1.7863, Accuracy: 38.68%, Avg PI: 0.1444, Avg Surprise: 2.9645, Avg Tau: 1.8864
+
+--- Epoch 23 ---
+Train Epoch 23 Summary: Avg loss: 1.7194, Avg Accuracy: 39.90%, Avg PI: 0.2339, Avg Surprise: 1.9499, Avg Tau: 1.7172
+Decision Stats: Consolidate: 76.4%, Ignore: 15.3%, Reject: 8.3%
+CIFAR10_Val set: Avg loss: 2.9188, Accuracy: 11.97%, Avg PI: 0.0292, Avg Surprise: 5.3722, Avg Tau: 1.7016
+SVHN_Val set: Avg loss: 1.4350, Accuracy: 50.43%, Avg PI: 0.0796, Avg Surprise: 4.0852, Avg Tau: 1.4337
+
+--- Epoch 24 ---
+Train Epoch 24 Summary: Avg loss: 1.4702, Avg Accuracy: 49.32%, Avg PI: 0.2101, Avg Surprise: 2.1715, Avg Tau: 1.4717
+Decision Stats: Consolidate: 80.6%, Ignore: 8.3%, Reject: 11.1%
+CIFAR10_Val set: Avg loss: 3.0280, Accuracy: 11.19%, Avg PI: 0.0184, Avg Surprise: 6.2004, Avg Tau: 1.6749
+SVHN_Val set: Avg loss: 1.1950, Accuracy: 59.23%, Avg PI: 0.0976, Avg Surprise: 3.7474, Avg Tau: 1.2590
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-1-2-sigma-rehearsal-epoch_24.pth
+
+--- Rehearsal on CIFAR-10 for 1 epoch ---
+
+--- Epoch 25 ---
+Train Epoch 25 Summary: Avg loss: 1.7289, Avg Accuracy: 39.42%, Avg PI: 0.2709, Avg Surprise: 1.8015, Avg Tau: 1.6378
+Decision Stats: Consolidate: 87.8%, Ignore: 6.1%, Reject: 6.1%
+CIFAR10_Val set: Avg loss: 1.0528, Accuracy: 62.04%, Avg PI: 0.2420, Avg Surprise: 1.8233, Avg Tau: 1.0229
+SVHN_Val set: Avg loss: 3.4611, Accuracy: 14.16%, Avg PI: 0.0119, Avg Surprise: 6.6779, Avg Tau: 1.5520
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-1-2-sigma-rehearsal-epoch_25.pth
+
+--- Cycle 2/2 ---
+
+--- Training on SVHN for 4 epochs ---
+
+--- Epoch 26 ---
+Train Epoch 26 Summary: Avg loss: 1.8172, Avg Accuracy: 39.42%, Avg PI: 0.2201, Avg Surprise: 2.3155, Avg Tau: 1.6764
+Decision Stats: Consolidate: 84.7%, Ignore: 2.8%, Reject: 12.5%
+CIFAR10_Val set: Avg loss: 2.5876, Accuracy: 18.96%, Avg PI: 0.0470, Avg Surprise: 4.5737, Avg Tau: 1.6676
+SVHN_Val set: Avg loss: 1.2030, Accuracy: 59.02%, Avg PI: 0.1277, Avg Surprise: 3.1561, Avg Tau: 1.2207
+
+--- Epoch 27 ---
+Train Epoch 27 Summary: Avg loss: 1.2939, Avg Accuracy: 55.68%, Avg PI: 0.2030, Avg Surprise: 2.2602, Avg Tau: 1.2969
+Decision Stats: Consolidate: 76.4%, Ignore: 15.3%, Reject: 8.3%
+CIFAR10_Val set: Avg loss: 2.8211, Accuracy: 14.46%, Avg PI: 0.0250, Avg Surprise: 5.6559, Avg Tau: 1.6235
+SVHN_Val set: Avg loss: 1.0575, Accuracy: 64.21%, Avg PI: 0.0902, Avg Surprise: 3.8336, Avg Tau: 1.0415
+
+--- Epoch 28 ---
+Train Epoch 28 Summary: Avg loss: 1.1492, Avg Accuracy: 60.60%, Avg PI: 0.2241, Avg Surprise: 2.0398, Avg Tau: 1.1645
+Decision Stats: Consolidate: 77.8%, Ignore: 15.3%, Reject: 6.9%
+CIFAR10_Val set: Avg loss: 2.7106, Accuracy: 14.65%, Avg PI: 0.0323, Avg Surprise: 5.2810, Avg Tau: 1.6815
+SVHN_Val set: Avg loss: 0.8973, Accuracy: 70.29%, Avg PI: 0.1529, Avg Surprise: 2.8062, Avg Tau: 0.9228
+
+--- Epoch 29 ---
+Train Epoch 29 Summary: Avg loss: 1.0659, Avg Accuracy: 63.78%, Avg PI: 0.2193, Avg Surprise: 2.0860, Avg Tau: 1.0783
+Decision Stats: Consolidate: 80.6%, Ignore: 13.9%, Reject: 5.6%
+CIFAR10_Val set: Avg loss: 2.7691, Accuracy: 13.79%, Avg PI: 0.0306, Avg Surprise: 5.3504, Avg Tau: 1.6845
+SVHN_Val set: Avg loss: 0.8236, Accuracy: 72.41%, Avg PI: 0.1547, Avg Surprise: 2.7678, Avg Tau: 0.8327
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-1-2-sigma-rehearsal-epoch_29.pth
+
+--- Rehearsal on CIFAR-10 for 1 epoch ---
+
+--- Epoch 30 ---
+Train Epoch 30 Summary: Avg loss: 1.7789, Avg Accuracy: 38.05%, Avg PI: 0.2460, Avg Surprise: 1.9241, Avg Tau: 1.6668
+Decision Stats: Consolidate: 71.4%, Ignore: 16.3%, Reject: 12.2%
+CIFAR10_Val set: Avg loss: 1.1631, Accuracy: 58.30%, Avg PI: 0.1922, Avg Surprise: 2.2599, Avg Tau: 1.1038
+SVHN_Val set: Avg loss: 3.2336, Accuracy: 17.79%, Avg PI: 0.0087, Avg Surprise: 7.3180, Avg Tau: 1.4196
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-1-2-sigma-rehearsal-epoch_30.pth
+
+--- Overtime Training on SVHN for 2 epochs ---
+
+--- Epoch 31 ---
+Train Epoch 31 Summary: Avg loss: 1.5351, Avg Accuracy: 50.71%, Avg PI: 0.2001, Avg Surprise: 2.6060, Avg Tau: 1.3492
+Decision Stats: Consolidate: 84.7%, Ignore: 2.8%, Reject: 12.5%
+CIFAR10_Val set: Avg loss: 2.6874, Accuracy: 16.05%, Avg PI: 0.0404, Avg Surprise: 4.7884, Avg Tau: 1.6266
+SVHN_Val set: Avg loss: 0.8060, Accuracy: 73.44%, Avg PI: 0.1855, Avg Surprise: 2.4364, Avg Tau: 0.8473
+
+--- Epoch 32 ---
+Train Epoch 32 Summary: Avg loss: 0.9935, Avg Accuracy: 66.67%, Avg PI: 0.2466, Avg Surprise: 1.8377, Avg Tau: 1.0166
+Decision Stats: Consolidate: 80.6%, Ignore: 12.5%, Reject: 6.9%
+CIFAR10_Val set: Avg loss: 2.6550, Accuracy: 15.50%, Avg PI: 0.0386, Avg Surprise: 4.9005, Avg Tau: 1.6340
+SVHN_Val set: Avg loss: 0.7516, Accuracy: 75.15%, Avg PI: 0.1593, Avg Surprise: 2.6824, Avg Tau: 0.7459
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-1-2-sigma-rehearsal-epoch_32.pth
+
+Plots for full experiment saved to: E:\Dev\Chain\SigmaPI\output\ViT

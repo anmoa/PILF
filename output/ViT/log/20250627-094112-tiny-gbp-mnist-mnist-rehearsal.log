@@ -1,0 +1,135 @@
+Logging output to: output/ViT/log\20250627-094112-tiny-gbp-mnist-mnist-rehearsal.log
+Loading checkpoint from: output/ViT/checkpoints/tiny-moe-mnist--single-final.pth
+Model: tiny-gbp-mnist-mnist-rehearsal
+Total Trainable Parameters: 0.26M
+
+==================================================
+          FashionMNIST Rehearsal: 4x(4 FashionMNIST + 1 MNIST)
+==================================================
+
+
+--- Cycle 1/4 ---
+
+--- Training on FashionMNIST for 4 epochs ---
+
+--- Epoch 1 ---
+Train Epoch 1 Summary: Avg loss: 1.8721, Avg Accuracy: 51.04%, Avg PI: 0.1548, Avg Surprise: 4.5748, Avg Tau: 1.0793, Avg LR-Mod: 0.8781
+FashionMNIST_Val set: Avg loss: 0.7571, Accuracy: 72.53%, Avg PI: 0.2518, Avg Surprise: 1.8068, Avg Tau: 0.7772
+MNIST_Val set: Avg loss: 2.9239, Accuracy: 28.87%, Avg PI: 0.0000, Avg Surprise: 19.9720, Avg Tau: 0.8660
+
+--- Epoch 2 ---
+Train Epoch 2 Summary: Avg loss: 0.7347, Avg Accuracy: 73.14%, Avg PI: 0.2447, Avg Surprise: 1.8852, Avg Tau: 0.7427, Avg LR-Mod: 0.7169
+FashionMNIST_Val set: Avg loss: 0.6236, Accuracy: 77.33%, Avg PI: 0.1256, Avg Surprise: 3.0374, Avg Tau: 0.5559
+MNIST_Val set: Avg loss: 3.1031, Accuracy: 26.22%, Avg PI: 0.0000, Avg Surprise: 28.2989, Avg Tau: 0.7888
+
+--- Epoch 3 ---
+Train Epoch 3 Summary: Avg loss: 0.6197, Avg Accuracy: 77.18%, Avg PI: 0.2350, Avg Surprise: 1.9633, Avg Tau: 0.6142, Avg LR-Mod: 0.7240
+FashionMNIST_Val set: Avg loss: 0.5482, Accuracy: 80.05%, Avg PI: 0.1914, Avg Surprise: 2.2015, Avg Tau: 0.4897
+MNIST_Val set: Avg loss: 3.3978, Accuracy: 23.93%, Avg PI: 0.0000, Avg Surprise: 39.4557, Avg Tau: 0.8056
+
+--- Epoch 4 ---
+Train Epoch 4 Summary: Avg loss: 0.5573, Avg Accuracy: 79.70%, Avg PI: 0.2365, Avg Surprise: 1.9933, Avg Tau: 0.5541, Avg LR-Mod: 0.7122
+FashionMNIST_Val set: Avg loss: 0.5054, Accuracy: 82.02%, Avg PI: 0.2244, Avg Surprise: 1.8850, Avg Tau: 0.4554
+MNIST_Val set: Avg loss: 3.5702, Accuracy: 22.95%, Avg PI: 0.0000, Avg Surprise: 32.3958, Avg Tau: 0.8620
+
+--- Rehearsal on MNIST for 1 epoch ---
+
+--- Epoch 5 ---
+Train Epoch 5 Summary: Avg loss: 0.6578, Avg Accuracy: 81.17%, Avg PI: 0.3011, Avg Surprise: 3.8656, Avg Tau: 0.5410, Avg LR-Mod: 0.9095
+FashionMNIST_Val set: Avg loss: 3.2707, Accuracy: 24.00%, Avg PI: 0.0006, Avg Surprise: 10.8135, Avg Tau: 0.8205
+MNIST_Val set: Avg loss: 0.0931, Accuracy: 97.05%, Avg PI: 0.4408, Avg Surprise: 0.6383, Avg Tau: 0.0843
+
+--- Cycle 2/4 ---
+
+--- Training on FashionMNIST for 4 epochs ---
+
+--- Epoch 6 ---
+Train Epoch 6 Summary: Avg loss: 1.0830, Avg Accuracy: 65.26%, Avg PI: 0.2843, Avg Surprise: 2.2975, Avg Tau: 0.8942, Avg LR-Mod: 0.8703
+FashionMNIST_Val set: Avg loss: 0.5876, Accuracy: 78.82%, Avg PI: 0.3622, Avg Surprise: 0.9713, Avg Tau: 0.5523
+MNIST_Val set: Avg loss: 2.0222, Accuracy: 37.30%, Avg PI: 0.0002, Avg Surprise: 15.8582, Avg Tau: 0.8990
+
+--- Epoch 7 ---
+Train Epoch 7 Summary: Avg loss: 0.5851, Avg Accuracy: 78.83%, Avg PI: 0.3676, Avg Surprise: 1.0252, Avg Tau: 0.5949, Avg LR-Mod: 0.7427
+FashionMNIST_Val set: Avg loss: 0.5168, Accuracy: 81.27%, Avg PI: 0.3737, Avg Surprise: 0.8979, Avg Tau: 0.4809
+MNIST_Val set: Avg loss: 1.9066, Accuracy: 40.20%, Avg PI: 0.0001, Avg Surprise: 18.9150, Avg Tau: 0.8912
+
+--- Epoch 8 ---
+Train Epoch 8 Summary: Avg loss: 0.5245, Avg Accuracy: 80.93%, Avg PI: 0.3431, Avg Surprise: 1.1746, Avg Tau: 0.5315, Avg LR-Mod: 0.7170
+FashionMNIST_Val set: Avg loss: 0.4957, Accuracy: 82.29%, Avg PI: 0.2621, Avg Surprise: 1.5284, Avg Tau: 0.4290
+MNIST_Val set: Avg loss: 2.1336, Accuracy: 36.82%, Avg PI: 0.0000, Avg Surprise: 23.3238, Avg Tau: 0.8863
+
+--- Epoch 9 ---
+Train Epoch 9 Summary: Avg loss: 0.4914, Avg Accuracy: 82.19%, Avg PI: 0.3360, Avg Surprise: 1.2109, Avg Tau: 0.4937, Avg LR-Mod: 0.8074
+FashionMNIST_Val set: Avg loss: 0.4594, Accuracy: 83.49%, Avg PI: 0.3370, Avg Surprise: 1.0476, Avg Tau: 0.4051
+MNIST_Val set: Avg loss: 2.2500, Accuracy: 34.80%, Avg PI: 0.0000, Avg Surprise: 23.2569, Avg Tau: 0.9087
+
+--- Rehearsal on MNIST for 1 epoch ---
+
+--- Epoch 10 ---
+Train Epoch 10 Summary: Avg loss: 0.5238, Avg Accuracy: 84.09%, Avg PI: 0.3351, Avg Surprise: 2.9802, Avg Tau: 0.5143, Avg LR-Mod: 0.9134
+FashionMNIST_Val set: Avg loss: 1.9452, Accuracy: 44.14%, Avg PI: 0.0045, Avg Surprise: 8.4009, Avg Tau: 0.8039
+MNIST_Val set: Avg loss: 0.1132, Accuracy: 96.31%, Avg PI: 0.4324, Avg Surprise: 0.6980, Avg Tau: 0.1057
+
+--- Cycle 3/4 ---
+
+--- Training on FashionMNIST for 4 epochs ---
+
+--- Epoch 11 ---
+Train Epoch 11 Summary: Avg loss: 0.8038, Avg Accuracy: 72.67%, Avg PI: 0.2894, Avg Surprise: 2.0654, Avg Tau: 0.6919, Avg LR-Mod: 0.8667
+FashionMNIST_Val set: Avg loss: 0.5117, Accuracy: 81.72%, Avg PI: 0.3744, Avg Surprise: 0.8334, Avg Tau: 0.4516
+MNIST_Val set: Avg loss: 1.0185, Accuracy: 66.24%, Avg PI: 0.0077, Avg Surprise: 8.8104, Avg Tau: 0.6830
+
+--- Epoch 12 ---
+Train Epoch 12 Summary: Avg loss: 0.5015, Avg Accuracy: 81.82%, Avg PI: 0.3910, Avg Surprise: 0.9029, Avg Tau: 0.5107, Avg LR-Mod: 0.7478
+FashionMNIST_Val set: Avg loss: 0.4723, Accuracy: 83.05%, Avg PI: 0.3366, Avg Surprise: 1.0456, Avg Tau: 0.4163
+MNIST_Val set: Avg loss: 1.0350, Accuracy: 66.51%, Avg PI: 0.0056, Avg Surprise: 9.9984, Avg Tau: 0.7015
+
+--- Epoch 13 ---
+Train Epoch 13 Summary: Avg loss: 0.4652, Avg Accuracy: 83.14%, Avg PI: 0.3798, Avg Surprise: 0.9619, Avg Tau: 0.4737, Avg LR-Mod: 0.7310
+FashionMNIST_Val set: Avg loss: 0.4553, Accuracy: 83.47%, Avg PI: 0.3353, Avg Surprise: 1.0061, Avg Tau: 0.3851
+MNIST_Val set: Avg loss: 1.0966, Accuracy: 64.24%, Avg PI: 0.0040, Avg Surprise: 10.3245, Avg Tau: 0.7359
+
+--- Epoch 14 ---
+Train Epoch 14 Summary: Avg loss: 0.4468, Avg Accuracy: 83.62%, Avg PI: 0.3788, Avg Surprise: 0.9618, Avg Tau: 0.4529, Avg LR-Mod: 0.7485
+FashionMNIST_Val set: Avg loss: 0.4328, Accuracy: 84.47%, Avg PI: 0.3366, Avg Surprise: 1.0006, Avg Tau: 0.3670
+MNIST_Val set: Avg loss: 1.2213, Accuracy: 61.17%, Avg PI: 0.0016, Avg Surprise: 12.3100, Avg Tau: 0.7663
+
+--- Rehearsal on MNIST for 1 epoch ---
+
+--- Epoch 15 ---
+Train Epoch 15 Summary: Avg loss: 0.3454, Avg Accuracy: 89.10%, Avg PI: 0.3487, Avg Surprise: 2.0824, Avg Tau: 0.3647, Avg LR-Mod: 0.9085
+FashionMNIST_Val set: Avg loss: 1.3069, Accuracy: 61.60%, Avg PI: 0.0386, Avg Surprise: 4.4431, Avg Tau: 0.6281
+MNIST_Val set: Avg loss: 0.0978, Accuracy: 96.85%, Avg PI: 0.4472, Avg Surprise: 0.6037, Avg Tau: 0.0900
+
+--- Cycle 4/4 ---
+
+--- Training on FashionMNIST for 4 epochs ---
+
+--- Epoch 16 ---
+Train Epoch 16 Summary: Avg loss: 0.6124, Avg Accuracy: 78.59%, Avg PI: 0.3142, Avg Surprise: 1.5192, Avg Tau: 0.5474, Avg LR-Mod: 0.8596
+FashionMNIST_Val set: Avg loss: 0.4503, Accuracy: 83.58%, Avg PI: 0.3404, Avg Surprise: 1.0094, Avg Tau: 0.3916
+MNIST_Val set: Avg loss: 0.5413, Accuracy: 81.90%, Avg PI: 0.0539, Avg Surprise: 4.8652, Avg Tau: 0.4660
+
+--- Epoch 17 ---
+Train Epoch 17 Summary: Avg loss: 0.4392, Avg Accuracy: 83.97%, Avg PI: 0.3961, Avg Surprise: 0.8724, Avg Tau: 0.4437, Avg LR-Mod: 0.7602
+FashionMNIST_Val set: Avg loss: 0.4323, Accuracy: 84.27%, Avg PI: 0.3198, Avg Surprise: 1.0652, Avg Tau: 0.3535
+MNIST_Val set: Avg loss: 0.6005, Accuracy: 80.25%, Avg PI: 0.0306, Avg Surprise: 6.0115, Avg Tau: 0.4956
+
+--- Epoch 18 ---
+Train Epoch 18 Summary: Avg loss: 0.4213, Avg Accuracy: 84.61%, Avg PI: 0.3753, Avg Surprise: 0.9777, Avg Tau: 0.4221, Avg LR-Mod: 0.7645
+FashionMNIST_Val set: Avg loss: 0.4455, Accuracy: 83.56%, Avg PI: 0.2202, Avg Surprise: 1.8366, Avg Tau: 0.3699
+MNIST_Val set: Avg loss: 0.6750, Accuracy: 77.52%, Avg PI: 0.0215, Avg Surprise: 6.8419, Avg Tau: 0.5442
+
+--- Epoch 19 ---
+Train Epoch 19 Summary: Avg loss: 0.4121, Avg Accuracy: 84.91%, Avg PI: 0.3546, Avg Surprise: 1.1093, Avg Tau: 0.4140, Avg LR-Mod: 0.7825
+FashionMNIST_Val set: Avg loss: 0.4072, Accuracy: 85.35%, Avg PI: 0.3369, Avg Surprise: 0.9994, Avg Tau: 0.3440
+MNIST_Val set: Avg loss: 0.7784, Accuracy: 74.15%, Avg PI: 0.0091, Avg Surprise: 8.3094, Avg Tau: 0.5842
+
+--- Rehearsal on MNIST for 1 epoch ---
+
+--- Epoch 20 ---
+Train Epoch 20 Summary: Avg loss: 0.2549, Avg Accuracy: 91.88%, Avg PI: 0.3750, Avg Surprise: 1.6691, Avg Tau: 0.2711, Avg LR-Mod: 0.8984
+FashionMNIST_Val set: Avg loss: 1.0036, Accuracy: 69.45%, Avg PI: 0.0705, Avg Surprise: 3.5129, Avg Tau: 0.5568
+MNIST_Val set: Avg loss: 0.0873, Accuracy: 97.16%, Avg PI: 0.4386, Avg Surprise: 0.5876, Avg Tau: 0.0764
+
+Plots for full experiment saved to: E:\Dev\Chain\SigmaPI\output\ViT

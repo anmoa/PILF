@@ -1,0 +1,107 @@
+Logging output to: output/ViT/log\20250627-052349-gbp-moe-vit-rehearsal.log
+Loading checkpoint from: output/ViT/checkpoints/moe_16_4_vit-single-epoch_20.pth
+Model: gbp-moe-vit-rehearsal
+Total Trainable Parameters: 1.23M
+
+==================================================
+          STAGE 2 (Rehearsal): 2x(4 SVHN + 1 CIFAR) + 2 SVHN Overtime
+==================================================
+
+
+--- Cycle 1/2 ---
+
+--- Training on SVHN for 4 epochs ---
+
+--- Epoch 21 ---
+Train Epoch 21 Summary: Avg loss: 2.3691, Avg Accuracy: 19.50%, Avg PI: 0.3963, Avg Surprise: 1.3285, Avg Tau: 2.1381
+Decision Stats: Consolidate: 97.2%, Ignore: 0.0%, Reject: 2.8%
+CIFAR10_Val set: Avg loss: 2.4816, Accuracy: 11.20%, Avg PI: 0.1404, Avg Surprise: 2.7646, Avg Tau: 2.1117
+SVHN_Val set: Avg loss: 2.0620, Accuracy: 28.09%, Avg PI: 0.3158, Avg Surprise: 1.3399, Avg Tau: 2.0760
+
+--- Epoch 22 ---
+Train Epoch 22 Summary: Avg loss: 1.9617, Avg Accuracy: 30.81%, Avg PI: 0.2838, Avg Surprise: 1.6147, Avg Tau: 1.9616
+Decision Stats: Consolidate: 94.4%, Ignore: 2.8%, Reject: 2.8%
+CIFAR10_Val set: Avg loss: 2.7546, Accuracy: 15.33%, Avg PI: 0.0435, Avg Surprise: 4.8398, Avg Tau: 1.8889
+SVHN_Val set: Avg loss: 1.7509, Accuracy: 38.44%, Avg PI: 0.0806, Avg Surprise: 4.1241, Avg Tau: 1.7921
+
+--- Epoch 23 ---
+Train Epoch 23 Summary: Avg loss: 1.6553, Avg Accuracy: 42.63%, Avg PI: 0.2345, Avg Surprise: 1.9598, Avg Tau: 1.6599
+Decision Stats: Consolidate: 95.8%, Ignore: 2.8%, Reject: 1.4%
+CIFAR10_Val set: Avg loss: 2.9603, Accuracy: 12.91%, Avg PI: 0.0159, Avg Surprise: 6.5163, Avg Tau: 1.6351
+SVHN_Val set: Avg loss: 1.3631, Accuracy: 53.56%, Avg PI: 0.1012, Avg Surprise: 3.6079, Avg Tau: 1.3571
+
+--- Epoch 24 ---
+Train Epoch 24 Summary: Avg loss: 1.4099, Avg Accuracy: 51.26%, Avg PI: 0.1947, Avg Surprise: 2.3088, Avg Tau: 1.4060
+Decision Stats: Consolidate: 91.7%, Ignore: 5.6%, Reject: 2.8%
+CIFAR10_Val set: Avg loss: 3.3062, Accuracy: 10.67%, Avg PI: 0.0065, Avg Surprise: 7.8552, Avg Tau: 1.4826
+SVHN_Val set: Avg loss: 1.1633, Accuracy: 61.19%, Avg PI: 0.1063, Avg Surprise: 3.4801, Avg Tau: 1.1311
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-rehearsal-epoch_24.pth
+
+--- Rehearsal on CIFAR-10 for 1 epoch ---
+
+--- Epoch 25 ---
+Train Epoch 25 Summary: Avg loss: 1.6878, Avg Accuracy: 41.38%, Avg PI: 0.2851, Avg Surprise: 1.7842, Avg Tau: 1.5980
+Decision Stats: Consolidate: 95.9%, Ignore: 0.0%, Reject: 4.1%
+CIFAR10_Val set: Avg loss: 1.0871, Accuracy: 61.22%, Avg PI: 0.2300, Avg Surprise: 1.9021, Avg Tau: 1.0368
+SVHN_Val set: Avg loss: 3.3530, Accuracy: 13.81%, Avg PI: 0.0120, Avg Surprise: 6.6374, Avg Tau: 1.4899
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-rehearsal-epoch_25.pth
+
+--- Cycle 2/2 ---
+
+--- Training on SVHN for 4 epochs ---
+
+--- Epoch 26 ---
+Train Epoch 26 Summary: Avg loss: 1.6160, Avg Accuracy: 45.79%, Avg PI: 0.2334, Avg Surprise: 2.0561, Avg Tau: 1.5532
+Decision Stats: Consolidate: 95.8%, Ignore: 0.0%, Reject: 4.2%
+CIFAR10_Val set: Avg loss: 2.7253, Accuracy: 18.31%, Avg PI: 0.0311, Avg Surprise: 5.2045, Avg Tau: 1.5507
+SVHN_Val set: Avg loss: 1.0904, Accuracy: 62.90%, Avg PI: 0.1041, Avg Surprise: 3.5195, Avg Tau: 1.0625
+
+--- Epoch 27 ---
+Train Epoch 27 Summary: Avg loss: 1.2127, Avg Accuracy: 58.78%, Avg PI: 0.2119, Avg Surprise: 2.1381, Avg Tau: 1.2143
+Decision Stats: Consolidate: 93.1%, Ignore: 4.2%, Reject: 2.8%
+CIFAR10_Val set: Avg loss: 2.8791, Accuracy: 15.12%, Avg PI: 0.0256, Avg Surprise: 5.4946, Avg Tau: 1.5488
+SVHN_Val set: Avg loss: 0.9326, Accuracy: 68.24%, Avg PI: 0.1539, Avg Surprise: 2.7692, Avg Tau: 0.9325
+
+--- Epoch 28 ---
+Train Epoch 28 Summary: Avg loss: 1.0811, Avg Accuracy: 63.05%, Avg PI: 0.2223, Avg Surprise: 2.0450, Avg Tau: 1.0883
+Decision Stats: Consolidate: 97.2%, Ignore: 1.4%, Reject: 1.4%
+CIFAR10_Val set: Avg loss: 2.8548, Accuracy: 13.90%, Avg PI: 0.0242, Avg Surprise: 5.6864, Avg Tau: 1.5946
+SVHN_Val set: Avg loss: 0.8254, Accuracy: 72.92%, Avg PI: 0.1836, Avg Surprise: 2.4666, Avg Tau: 0.8804
+
+--- Epoch 29 ---
+Train Epoch 29 Summary: Avg loss: 0.9895, Avg Accuracy: 66.69%, Avg PI: 0.2332, Avg Surprise: 1.9504, Avg Tau: 0.9970
+Decision Stats: Consolidate: 95.8%, Ignore: 1.4%, Reject: 2.8%
+CIFAR10_Val set: Avg loss: 2.9996, Accuracy: 12.04%, Avg PI: 0.0167, Avg Surprise: 6.2681, Avg Tau: 1.5399
+SVHN_Val set: Avg loss: 0.7749, Accuracy: 74.78%, Avg PI: 0.1368, Avg Surprise: 2.9656, Avg Tau: 0.7445
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-rehearsal-epoch_29.pth
+
+--- Rehearsal on CIFAR-10 for 1 epoch ---
+
+--- Epoch 30 ---
+Train Epoch 30 Summary: Avg loss: 1.5262, Avg Accuracy: 46.34%, Avg PI: 0.2668, Avg Surprise: 1.7577, Avg Tau: 1.4819
+Decision Stats: Consolidate: 98.0%, Ignore: 0.0%, Reject: 2.0%
+CIFAR10_Val set: Avg loss: 1.0762, Accuracy: 60.81%, Avg PI: 0.2498, Avg Surprise: 1.7410, Avg Tau: 1.0320
+SVHN_Val set: Avg loss: 3.1166, Accuracy: 17.97%, Avg PI: 0.0149, Avg Surprise: 6.3600, Avg Tau: 1.4974
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-rehearsal-epoch_30.pth
+
+--- Overtime Training on SVHN for 2 epochs ---
+
+--- Epoch 31 ---
+Train Epoch 31 Summary: Avg loss: 1.3003, Avg Accuracy: 57.50%, Avg PI: 0.2156, Avg Surprise: 2.2363, Avg Tau: 1.2285
+Decision Stats: Consolidate: 95.8%, Ignore: 0.0%, Reject: 4.2%
+CIFAR10_Val set: Avg loss: 2.6515, Accuracy: 16.90%, Avg PI: 0.0376, Avg Surprise: 4.8905, Avg Tau: 1.5676
+SVHN_Val set: Avg loss: 0.7597, Accuracy: 75.20%, Avg PI: 0.1821, Avg Surprise: 2.4622, Avg Tau: 0.7914
+
+--- Epoch 32 ---
+Train Epoch 32 Summary: Avg loss: 0.9182, Avg Accuracy: 69.23%, Avg PI: 0.2521, Avg Surprise: 1.7942, Avg Tau: 0.9344
+Decision Stats: Consolidate: 94.4%, Ignore: 2.8%, Reject: 2.8%
+CIFAR10_Val set: Avg loss: 2.5868, Accuracy: 16.56%, Avg PI: 0.0399, Avg Surprise: 4.8980, Avg Tau: 1.6522
+SVHN_Val set: Avg loss: 0.7006, Accuracy: 77.20%, Avg PI: 0.1699, Avg Surprise: 2.6130, Avg Tau: 0.7377
+
+Checkpoint saved to: output/ViT/checkpoints\gbp-moe-vit-rehearsal-epoch_32.pth
+
+Plots for full experiment saved to: E:\Dev\Chain\SigmaPI\output\ViT

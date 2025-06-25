@@ -1,0 +1,108 @@
+Logging output to: output/ViT/log\20250626-132538-MOE_ViT.log
+Model: MOE_ViT-Params_1.21M
+Total Trainable Parameters: 1.21M
+Files already downloaded and verified
+Files already downloaded and verified
+Using downloaded and verified file: temp_data/SVHN\test_32x32.mat
+
+--- Epoch 1 ---
+Train Epoch 1 Summary: Avg loss: 1.9000, Avg Accuracy: 29.33%, Avg PI: 0.3464, Avg Surprise: 1.2649, Avg Tau: 1.8693
+CIFAR10 Val set: Average loss: 1.6919, Accuracy: 3784/10000 (37.84%)	Avg PI: 0.2893
+SVHN OOD set: Average loss: 3.1107, Accuracy: 257/2603 (9.87%)	Avg PI: 0.0608
+
+--- Epoch 2 ---
+Train Epoch 2 Summary: Avg loss: 1.6584, Avg Accuracy: 38.27%, Avg PI: 0.3253, Avg Surprise: 1.2901, Avg Tau: 1.6669
+CIFAR10 Val set: Average loss: 1.6112, Accuracy: 4141/10000 (41.41%)	Avg PI: 0.1818
+SVHN OOD set: Average loss: 3.3154, Accuracy: 258/2603 (9.91%)	Avg PI: 0.0319
+
+--- Epoch 3 ---
+Train Epoch 3 Summary: Avg loss: 1.5094, Avg Accuracy: 44.81%, Avg PI: 0.2974, Avg Surprise: 1.4631, Avg Tau: 1.5272
+CIFAR10 Val set: Average loss: 1.4259, Accuracy: 4841/10000 (48.41%)	Avg PI: 0.1848
+SVHN OOD set: Average loss: 3.6065, Accuracy: 310/2603 (11.91%)	Avg PI: 0.0203
+
+--- Epoch 4 ---
+Train Epoch 4 Summary: Avg loss: 1.4028, Avg Accuracy: 48.89%, Avg PI: 0.2631, Avg Surprise: 1.7164, Avg Tau: 1.4178
+CIFAR10 Val set: Average loss: 1.3849, Accuracy: 5013/10000 (50.13%)	Avg PI: 0.1559
+SVHN OOD set: Average loss: 3.7764, Accuracy: 265/2603 (10.18%)	Avg PI: 0.0152
+
+--- Epoch 5 ---
+Train Epoch 5 Summary: Avg loss: 1.3176, Avg Accuracy: 52.15%, Avg PI: 0.2490, Avg Surprise: 1.8306, Avg Tau: 1.3396
+CIFAR10 Val set: Average loss: 1.2690, Accuracy: 5435/10000 (54.35%)	Avg PI: 0.1972
+SVHN OOD set: Average loss: 3.8419, Accuracy: 276/2603 (10.60%)	Avg PI: 0.0117
+
+--- Epoch 6 ---
+Train Epoch 6 Summary: Avg loss: 1.2649, Avg Accuracy: 54.28%, Avg PI: 0.2452, Avg Surprise: 1.8526, Avg Tau: 1.2824
+CIFAR10 Val set: Average loss: 1.2541, Accuracy: 5514/10000 (55.14%)	Avg PI: 0.1308
+SVHN OOD set: Average loss: 4.1311, Accuracy: 271/2603 (10.41%)	Avg PI: 0.0066
+
+--- Epoch 7 ---
+Train Epoch 7 Summary: Avg loss: 1.2270, Avg Accuracy: 55.16%, Avg PI: 0.2514, Avg Surprise: 1.7998, Avg Tau: 1.2367
+CIFAR10 Val set: Average loss: 1.1932, Accuracy: 5704/10000 (57.04%)	Avg PI: 0.1676
+SVHN OOD set: Average loss: 4.2083, Accuracy: 285/2603 (10.95%)	Avg PI: 0.0098
+
+--- Epoch 8 ---
+Train Epoch 8 Summary: Avg loss: 1.1845, Avg Accuracy: 57.32%, Avg PI: 0.2346, Avg Surprise: 1.9464, Avg Tau: 1.2027
+CIFAR10 Val set: Average loss: 1.1533, Accuracy: 5884/10000 (58.84%)	Avg PI: 0.1716
+SVHN OOD set: Average loss: 4.2153, Accuracy: 278/2603 (10.68%)	Avg PI: 0.0068
+
+--- Epoch 9 ---
+Train Epoch 9 Summary: Avg loss: 1.1583, Avg Accuracy: 58.18%, Avg PI: 0.2306, Avg Surprise: 1.9775, Avg Tau: 1.1646
+CIFAR10 Val set: Average loss: 1.1175, Accuracy: 5943/10000 (59.43%)	Avg PI: 0.1819
+SVHN OOD set: Average loss: 4.2297, Accuracy: 281/2603 (10.80%)	Avg PI: 0.0048
+
+--- Epoch 10 ---
+Train Epoch 10 Summary: Avg loss: 1.1331, Avg Accuracy: 58.95%, Avg PI: 0.2428, Avg Surprise: 1.8719, Avg Tau: 1.1395
+CIFAR10 Val set: Average loss: 1.0923, Accuracy: 6039/10000 (60.39%)	Avg PI: 0.1952
+SVHN OOD set: Average loss: 4.1881, Accuracy: 294/2603 (11.29%)	Avg PI: 0.0055
+
+--- Epoch 11 ---
+Train Epoch 11 Summary: Avg loss: 1.1070, Avg Accuracy: 59.95%, Avg PI: 0.2538, Avg Surprise: 1.7685, Avg Tau: 1.1183
+CIFAR10 Val set: Average loss: 1.0467, Accuracy: 6251/10000 (62.51%)	Avg PI: 0.2097
+SVHN OOD set: Average loss: 4.3359, Accuracy: 259/2603 (9.95%)	Avg PI: 0.0041
+
+--- Epoch 12 ---
+Train Epoch 12 Summary: Avg loss: 1.0724, Avg Accuracy: 61.40%, Avg PI: 0.2479, Avg Surprise: 1.8234, Avg Tau: 1.0867
+CIFAR10 Val set: Average loss: 1.0397, Accuracy: 6272/10000 (62.72%)	Avg PI: 0.1782
+SVHN OOD set: Average loss: 4.4213, Accuracy: 240/2603 (9.22%)	Avg PI: 0.0058
+
+--- Epoch 13 ---
+Train Epoch 13 Summary: Avg loss: 1.0519, Avg Accuracy: 62.04%, Avg PI: 0.2551, Avg Surprise: 1.7597, Avg Tau: 1.0609
+CIFAR10 Val set: Average loss: 0.9870, Accuracy: 6476/10000 (64.76%)	Avg PI: 0.2245
+SVHN OOD set: Average loss: 4.3900, Accuracy: 311/2603 (11.95%)	Avg PI: 0.0025
+
+--- Epoch 14 ---
+Train Epoch 14 Summary: Avg loss: 1.0317, Avg Accuracy: 62.60%, Avg PI: 0.2536, Avg Surprise: 1.7791, Avg Tau: 1.0427
+CIFAR10 Val set: Average loss: 0.9912, Accuracy: 6457/10000 (64.57%)	Avg PI: 0.1805
+SVHN OOD set: Average loss: 4.5242, Accuracy: 263/2603 (10.10%)	Avg PI: 0.0019
+
+--- Epoch 15 ---
+Train Epoch 15 Summary: Avg loss: 1.0208, Avg Accuracy: 63.27%, Avg PI: 0.2448, Avg Surprise: 1.8591, Avg Tau: 1.0273
+CIFAR10 Val set: Average loss: 0.9788, Accuracy: 6478/10000 (64.78%)	Avg PI: 0.1799
+SVHN OOD set: Average loss: 4.3385, Accuracy: 258/2603 (9.91%)	Avg PI: 0.0036
+
+--- Epoch 16 ---
+Train Epoch 16 Summary: Avg loss: 0.9951, Avg Accuracy: 63.92%, Avg PI: 0.2498, Avg Surprise: 1.8019, Avg Tau: 1.0031
+CIFAR10 Val set: Average loss: 0.9507, Accuracy: 6544/10000 (65.44%)	Avg PI: 0.1927
+SVHN OOD set: Average loss: 4.4275, Accuracy: 312/2603 (11.99%)	Avg PI: 0.0020
+
+--- Epoch 17 ---
+Train Epoch 17 Summary: Avg loss: 0.9744, Avg Accuracy: 64.81%, Avg PI: 0.2533, Avg Surprise: 1.7805, Avg Tau: 0.9813
+CIFAR10 Val set: Average loss: 0.9114, Accuracy: 6785/10000 (67.85%)	Avg PI: 0.2274
+SVHN OOD set: Average loss: 4.4643, Accuracy: 269/2603 (10.33%)	Avg PI: 0.0026
+
+--- Epoch 18 ---
+Train Epoch 18 Summary: Avg loss: 0.9735, Avg Accuracy: 65.14%, Avg PI: 0.2532, Avg Surprise: 1.7627, Avg Tau: 0.9715
+CIFAR10 Val set: Average loss: 0.9187, Accuracy: 6736/10000 (67.36%)	Avg PI: 0.2094
+SVHN OOD set: Average loss: 4.6507, Accuracy: 285/2603 (10.95%)	Avg PI: 0.0029
+
+--- Epoch 19 ---
+Train Epoch 19 Summary: Avg loss: 0.9399, Avg Accuracy: 66.49%, Avg PI: 0.2680, Avg Surprise: 1.6572, Avg Tau: 0.9489
+CIFAR10 Val set: Average loss: 0.8915, Accuracy: 6866/10000 (68.66%)	Avg PI: 0.2125
+SVHN OOD set: Average loss: 4.4905, Accuracy: 329/2603 (12.64%)	Avg PI: 0.0017
+
+--- Epoch 20 ---
+Train Epoch 20 Summary: Avg loss: 0.9143, Avg Accuracy: 67.17%, Avg PI: 0.2594, Avg Surprise: 1.7378, Avg Tau: 0.9308
+CIFAR10 Val set: Average loss: 0.8992, Accuracy: 6844/10000 (68.44%)	Avg PI: 0.1868
+SVHN OOD set: Average loss: 4.5646, Accuracy: 292/2603 (11.22%)	Avg PI: 0.0033
+
+Plots saved to: E:\Dev\Chain\SigmaPI\output\ViT

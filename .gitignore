@@ -1,0 +1,19 @@
+.venv/
+temp_data/
+dist/
+uv.lock
+
+# Python / Pip development ignores
+*.egg-info/
+build/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.env
+htmlcov/
+.coverage
+*.pyc
+*.sqlite3
+.DS_Store

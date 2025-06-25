@@ -1,0 +1,156 @@
+Logging output to: output/ViT/log\20250627-083640-tiny-gbp-mnist-single.log
+Model: tiny-gbp-mnist--single
+Total Trainable Parameters: 0.26M
+Training on: MNIST, Validating on: MNIST, OOD on: FashionMNIST
+
+--- Epoch 1 ---
+Train Epoch 1 Summary: Avg loss: 1.7902, Avg Accuracy: 35.41%, Avg PI: 0.2314, Avg Surprise: 2.2351, Avg Tau: 1.8916, Avg LR-Mod: 0.9637
+MNIST_Val set: Avg loss: 1.1715, Accuracy: 58.51%, Avg PI: 0.0428, Avg Surprise: 5.9725, Avg Tau: 1.3505
+FashionMNIST_OOD_Val set: Avg loss: 3.3164, Accuracy: 13.73%, Avg PI: 0.0057, Avg Surprise: 7.7324, Avg Tau: 1.2610
+
+--- Epoch 2 ---
+Train Epoch 2 Summary: Avg loss: 0.9704, Avg Accuracy: 66.34%, Avg PI: 0.1579, Avg Surprise: 3.1721, Avg Tau: 1.1381, Avg LR-Mod: 0.9453
+MNIST_Val set: Avg loss: 0.5798, Accuracy: 80.93%, Avg PI: 0.0543, Avg Surprise: 5.1166, Avg Tau: 0.7196
+FashionMNIST_OOD_Val set: Avg loss: 4.3438, Accuracy: 9.62%, Avg PI: 0.0001, Avg Surprise: 13.7620, Avg Tau: 0.8368
+
+--- Epoch 3 ---
+Train Epoch 3 Summary: Avg loss: 0.5438, Avg Accuracy: 82.07%, Avg PI: 0.1742, Avg Surprise: 2.7772, Avg Tau: 0.6589, Avg LR-Mod: 0.9602
+MNIST_Val set: Avg loss: 0.3019, Accuracy: 90.74%, Avg PI: 0.2138, Avg Surprise: 2.3933, Avg Tau: 0.3740
+FashionMNIST_OOD_Val set: Avg loss: 4.5482, Accuracy: 8.47%, Avg PI: 0.0000, Avg Surprise: 15.7787, Avg Tau: 0.7868
+
+--- Epoch 4 ---
+Train Epoch 4 Summary: Avg loss: 0.3546, Avg Accuracy: 88.71%, Avg PI: 0.2184, Avg Surprise: 2.3159, Avg Tau: 0.4285, Avg LR-Mod: 0.9589
+MNIST_Val set: Avg loss: 0.1980, Accuracy: 93.89%, Avg PI: 0.3742, Avg Surprise: 1.2353, Avg Tau: 0.2526
+FashionMNIST_OOD_Val set: Avg loss: 4.7826, Accuracy: 10.17%, Avg PI: 0.0000, Avg Surprise: 12.8189, Avg Tau: 0.6751
+
+--- Epoch 5 ---
+Train Epoch 5 Summary: Avg loss: 0.2660, Avg Accuracy: 91.68%, Avg PI: 0.2569, Avg Surprise: 1.9342, Avg Tau: 0.3196, Avg LR-Mod: 0.9540
+MNIST_Val set: Avg loss: 0.1641, Accuracy: 94.96%, Avg PI: 0.3408, Avg Surprise: 1.3775, Avg Tau: 0.1929
+FashionMNIST_OOD_Val set: Avg loss: 5.0220, Accuracy: 10.08%, Avg PI: 0.0000, Avg Surprise: 13.0878, Avg Tau: 0.6332
+
+--- Epoch 6 ---
+Train Epoch 6 Summary: Avg loss: 0.2216, Avg Accuracy: 92.98%, Avg PI: 0.2627, Avg Surprise: 1.8877, Avg Tau: 0.2608, Avg LR-Mod: 0.9524
+MNIST_Val set: Avg loss: 0.1421, Accuracy: 95.53%, Avg PI: 0.3269, Avg Surprise: 1.4790, Avg Tau: 0.1631
+FashionMNIST_OOD_Val set: Avg loss: 4.8682, Accuracy: 8.39%, Avg PI: 0.0000, Avg Surprise: 16.2832, Avg Tau: 0.7306
+
+--- Epoch 7 ---
+Train Epoch 7 Summary: Avg loss: 0.1876, Avg Accuracy: 94.10%, Avg PI: 0.3070, Avg Surprise: 1.5694, Avg Tau: 0.2226, Avg LR-Mod: 0.9541
+MNIST_Val set: Avg loss: 0.1223, Accuracy: 96.14%, Avg PI: 0.3626, Avg Surprise: 1.2246, Avg Tau: 0.1306
+FashionMNIST_OOD_Val set: Avg loss: 5.2688, Accuracy: 9.59%, Avg PI: 0.0000, Avg Surprise: 14.9444, Avg Tau: 0.5677
+
+--- Epoch 8 ---
+Train Epoch 8 Summary: Avg loss: 0.1626, Avg Accuracy: 95.00%, Avg PI: 0.3289, Avg Surprise: 1.4024, Avg Tau: 0.1893, Avg LR-Mod: 0.9499
+MNIST_Val set: Avg loss: 0.1114, Accuracy: 96.58%, Avg PI: 0.3944, Avg Surprise: 1.0299, Avg Tau: 0.1197
+FashionMNIST_OOD_Val set: Avg loss: 5.5210, Accuracy: 7.69%, Avg PI: 0.0000, Avg Surprise: 15.6408, Avg Tau: 0.5595
+
+--- Epoch 9 ---
+Train Epoch 9 Summary: Avg loss: 0.1489, Avg Accuracy: 95.35%, Avg PI: 0.3362, Avg Surprise: 1.3481, Avg Tau: 0.1723, Avg LR-Mod: 0.9519
+MNIST_Val set: Avg loss: 0.1071, Accuracy: 96.75%, Avg PI: 0.3355, Avg Surprise: 1.3222, Avg Tau: 0.1043
+FashionMNIST_OOD_Val set: Avg loss: 5.6336, Accuracy: 8.39%, Avg PI: 0.0000, Avg Surprise: 17.4476, Avg Tau: 0.5237
+
+--- Epoch 10 ---
+Train Epoch 10 Summary: Avg loss: 0.1334, Avg Accuracy: 95.80%, Avg PI: 0.3588, Avg Surprise: 1.2029, Avg Tau: 0.1530, Avg LR-Mod: 0.9544
+MNIST_Val set: Avg loss: 0.0997, Accuracy: 96.82%, Avg PI: 0.3399, Avg Surprise: 1.3339, Avg Tau: 0.0992
+FashionMNIST_OOD_Val set: Avg loss: 5.5598, Accuracy: 8.28%, Avg PI: 0.0000, Avg Surprise: 19.0455, Avg Tau: 0.5517
+
+--- Epoch 11 ---
+Train Epoch 11 Summary: Avg loss: 0.1179, Avg Accuracy: 96.21%, Avg PI: 0.3659, Avg Surprise: 1.1909, Avg Tau: 0.1418, Avg LR-Mod: 0.9589
+MNIST_Val set: Avg loss: 0.0971, Accuracy: 96.98%, Avg PI: 0.3344, Avg Surprise: 1.2304, Avg Tau: 0.0841
+FashionMNIST_OOD_Val set: Avg loss: 5.7786, Accuracy: 7.98%, Avg PI: 0.0000, Avg Surprise: 16.9816, Avg Tau: 0.5482
+
+--- Epoch 12 ---
+Train Epoch 12 Summary: Avg loss: 0.1122, Avg Accuracy: 96.41%, Avg PI: 0.3614, Avg Surprise: 1.1727, Avg Tau: 0.1270, Avg LR-Mod: 0.9580
+MNIST_Val set: Avg loss: 0.0909, Accuracy: 97.08%, Avg PI: 0.3909, Avg Surprise: 0.9636, Avg Tau: 0.0856
+FashionMNIST_OOD_Val set: Avg loss: 5.6582, Accuracy: 8.42%, Avg PI: 0.0000, Avg Surprise: 19.9272, Avg Tau: 0.5549
+
+--- Epoch 13 ---
+Train Epoch 13 Summary: Avg loss: 0.1043, Avg Accuracy: 96.71%, Avg PI: 0.3850, Avg Surprise: 1.0633, Avg Tau: 0.1213, Avg LR-Mod: 0.9538
+MNIST_Val set: Avg loss: 0.0881, Accuracy: 97.37%, Avg PI: 0.3642, Avg Surprise: 1.0140, Avg Tau: 0.0745
+FashionMNIST_OOD_Val set: Avg loss: 6.1412, Accuracy: 7.75%, Avg PI: 0.0000, Avg Surprise: 19.2190, Avg Tau: 0.4499
+
+--- Epoch 14 ---
+Train Epoch 14 Summary: Avg loss: 0.0974, Avg Accuracy: 96.79%, Avg PI: 0.3737, Avg Surprise: 1.1256, Avg Tau: 0.1127, Avg LR-Mod: 0.9581
+MNIST_Val set: Avg loss: 0.0808, Accuracy: 97.58%, Avg PI: 0.3912, Avg Surprise: 0.8089, Avg Tau: 0.0688
+FashionMNIST_OOD_Val set: Avg loss: 6.1330, Accuracy: 8.74%, Avg PI: 0.0000, Avg Surprise: 20.5056, Avg Tau: 0.4585
+
+--- Epoch 15 ---
+Train Epoch 15 Summary: Avg loss: 0.0931, Avg Accuracy: 97.02%, Avg PI: 0.3814, Avg Surprise: 1.0623, Avg Tau: 0.1056, Avg LR-Mod: 0.9549
+MNIST_Val set: Avg loss: 0.0832, Accuracy: 97.48%, Avg PI: 0.3525, Avg Surprise: 1.0110, Avg Tau: 0.0659
+FashionMNIST_OOD_Val set: Avg loss: 6.3747, Accuracy: 7.65%, Avg PI: 0.0000, Avg Surprise: 16.3004, Avg Tau: 0.4681
+
+--- Epoch 16 ---
+Train Epoch 16 Summary: Avg loss: 0.0884, Avg Accuracy: 97.14%, Avg PI: 0.3796, Avg Surprise: 1.0802, Avg Tau: 0.1005, Avg LR-Mod: 0.9541
+MNIST_Val set: Avg loss: 0.0738, Accuracy: 97.62%, Avg PI: 0.3943, Avg Surprise: 0.7914, Avg Tau: 0.0603
+FashionMNIST_OOD_Val set: Avg loss: 6.3248, Accuracy: 8.21%, Avg PI: 0.0000, Avg Surprise: 17.8347, Avg Tau: 0.4844
+
+--- Epoch 17 ---
+Train Epoch 17 Summary: Avg loss: 0.0798, Avg Accuracy: 97.44%, Avg PI: 0.4018, Avg Surprise: 0.9685, Avg Tau: 0.0914, Avg LR-Mod: 0.9577
+MNIST_Val set: Avg loss: 0.0758, Accuracy: 97.68%, Avg PI: 0.3435, Avg Surprise: 1.0322, Avg Tau: 0.0577
+FashionMNIST_OOD_Val set: Avg loss: 6.2072, Accuracy: 8.00%, Avg PI: 0.0000, Avg Surprise: 18.0474, Avg Tau: 0.5049
+
+--- Epoch 18 ---
+Train Epoch 18 Summary: Avg loss: 0.0796, Avg Accuracy: 97.46%, Avg PI: 0.4065, Avg Surprise: 0.9183, Avg Tau: 0.0883, Avg LR-Mod: 0.9645
+MNIST_Val set: Avg loss: 0.0697, Accuracy: 97.95%, Avg PI: 0.3854, Avg Surprise: 0.8459, Avg Tau: 0.0572
+FashionMNIST_OOD_Val set: Avg loss: 6.1426, Accuracy: 8.84%, Avg PI: 0.0000, Avg Surprise: 18.4020, Avg Tau: 0.5256
+
+--- Epoch 19 ---
+Train Epoch 19 Summary: Avg loss: 0.0719, Avg Accuracy: 97.61%, Avg PI: 0.4171, Avg Surprise: 0.8903, Avg Tau: 0.0820, Avg LR-Mod: 0.9585
+MNIST_Val set: Avg loss: 0.0698, Accuracy: 97.87%, Avg PI: 0.3795, Avg Surprise: 0.8227, Avg Tau: 0.0522
+FashionMNIST_OOD_Val set: Avg loss: 6.7936, Accuracy: 8.24%, Avg PI: 0.0000, Avg Surprise: 19.0264, Avg Tau: 0.4061
+
+--- Epoch 20 ---
+Train Epoch 20 Summary: Avg loss: 0.0682, Avg Accuracy: 97.76%, Avg PI: 0.4169, Avg Surprise: 0.8844, Avg Tau: 0.0775, Avg LR-Mod: 0.9536
+MNIST_Val set: Avg loss: 0.0655, Accuracy: 98.06%, Avg PI: 0.3908, Avg Surprise: 0.7474, Avg Tau: 0.0474
+FashionMNIST_OOD_Val set: Avg loss: 6.4428, Accuracy: 8.93%, Avg PI: 0.0000, Avg Surprise: 19.5206, Avg Tau: 0.4548
+
+--- Epoch 21 ---
+Train Epoch 21 Summary: Avg loss: 0.0672, Avg Accuracy: 97.78%, Avg PI: 0.4173, Avg Surprise: 0.8687, Avg Tau: 0.0752, Avg LR-Mod: 0.9581
+MNIST_Val set: Avg loss: 0.0602, Accuracy: 98.10%, Avg PI: 0.3904, Avg Surprise: 0.7558, Avg Tau: 0.0452
+FashionMNIST_OOD_Val set: Avg loss: 6.3881, Accuracy: 8.87%, Avg PI: 0.0000, Avg Surprise: 18.8059, Avg Tau: 0.4728
+
+--- Epoch 22 ---
+Train Epoch 22 Summary: Avg loss: 0.0634, Avg Accuracy: 97.93%, Avg PI: 0.4248, Avg Surprise: 0.8475, Avg Tau: 0.0715, Avg LR-Mod: 0.9549
+MNIST_Val set: Avg loss: 0.0644, Accuracy: 98.00%, Avg PI: 0.3698, Avg Surprise: 0.8632, Avg Tau: 0.0493
+FashionMNIST_OOD_Val set: Avg loss: 6.5334, Accuracy: 6.71%, Avg PI: 0.0000, Avg Surprise: 18.3015, Avg Tau: 0.5192
+
+--- Epoch 23 ---
+Train Epoch 23 Summary: Avg loss: 0.0620, Avg Accuracy: 97.99%, Avg PI: 0.4262, Avg Surprise: 0.8299, Avg Tau: 0.0696, Avg LR-Mod: 0.9556
+MNIST_Val set: Avg loss: 0.0642, Accuracy: 98.03%, Avg PI: 0.3577, Avg Surprise: 0.8057, Avg Tau: 0.0436
+FashionMNIST_OOD_Val set: Avg loss: 6.4914, Accuracy: 7.56%, Avg PI: 0.0000, Avg Surprise: 18.0846, Avg Tau: 0.4872
+
+--- Epoch 24 ---
+Train Epoch 24 Summary: Avg loss: 0.0610, Avg Accuracy: 97.96%, Avg PI: 0.4127, Avg Surprise: 0.8713, Avg Tau: 0.0665, Avg LR-Mod: 0.9528
+MNIST_Val set: Avg loss: 0.0653, Accuracy: 97.89%, Avg PI: 0.3552, Avg Surprise: 0.8122, Avg Tau: 0.0444
+FashionMNIST_OOD_Val set: Avg loss: 6.7719, Accuracy: 7.77%, Avg PI: 0.0000, Avg Surprise: 19.3271, Avg Tau: 0.4512
+
+--- Epoch 25 ---
+Train Epoch 25 Summary: Avg loss: 0.0538, Avg Accuracy: 98.26%, Avg PI: 0.4563, Avg Surprise: 0.7372, Avg Tau: 0.0631, Avg LR-Mod: 0.9570
+MNIST_Val set: Avg loss: 0.0590, Accuracy: 98.24%, Avg PI: 0.3473, Avg Surprise: 0.7362, Avg Tau: 0.0384
+FashionMNIST_OOD_Val set: Avg loss: 7.1949, Accuracy: 7.86%, Avg PI: 0.0000, Avg Surprise: 16.2977, Avg Tau: 0.3867
+
+--- Epoch 26 ---
+Train Epoch 26 Summary: Avg loss: 0.0514, Avg Accuracy: 98.32%, Avg PI: 0.4465, Avg Surprise: 0.7558, Avg Tau: 0.0583, Avg LR-Mod: 0.9502
+MNIST_Val set: Avg loss: 0.0663, Accuracy: 97.97%, Avg PI: 0.3238, Avg Surprise: 0.9008, Avg Tau: 0.0413
+FashionMNIST_OOD_Val set: Avg loss: 6.7682, Accuracy: 5.85%, Avg PI: 0.0000, Avg Surprise: 18.3835, Avg Tau: 0.4393
+
+--- Epoch 27 ---
+Train Epoch 27 Summary: Avg loss: 0.0501, Avg Accuracy: 98.35%, Avg PI: 0.4439, Avg Surprise: 0.7620, Avg Tau: 0.0567, Avg LR-Mod: 0.9566
+MNIST_Val set: Avg loss: 0.0600, Accuracy: 98.29%, Avg PI: 0.3274, Avg Surprise: 0.7460, Avg Tau: 0.0351
+FashionMNIST_OOD_Val set: Avg loss: 6.7790, Accuracy: 7.10%, Avg PI: 0.0000, Avg Surprise: 18.5680, Avg Tau: 0.4352
+
+--- Epoch 28 ---
+Train Epoch 28 Summary: Avg loss: 0.0481, Avg Accuracy: 98.34%, Avg PI: 0.4518, Avg Surprise: 0.7130, Avg Tau: 0.0536, Avg LR-Mod: 0.9556
+MNIST_Val set: Avg loss: 0.0576, Accuracy: 98.23%, Avg PI: 0.3367, Avg Surprise: 0.7306, Avg Tau: 0.0357
+FashionMNIST_OOD_Val set: Avg loss: 7.1565, Accuracy: 8.00%, Avg PI: 0.0000, Avg Surprise: 16.8427, Avg Tau: 0.4118
+
+--- Epoch 29 ---
+Train Epoch 29 Summary: Avg loss: 0.0446, Avg Accuracy: 98.54%, Avg PI: 0.4510, Avg Surprise: 0.7300, Avg Tau: 0.0504, Avg LR-Mod: 0.9582
+MNIST_Val set: Avg loss: 0.0557, Accuracy: 98.28%, Avg PI: 0.3421, Avg Surprise: 0.7348, Avg Tau: 0.0351
+FashionMNIST_OOD_Val set: Avg loss: 7.3315, Accuracy: 8.17%, Avg PI: 0.0000, Avg Surprise: 18.2420, Avg Tau: 0.3722
+
+--- Epoch 30 ---
+Train Epoch 30 Summary: Avg loss: 0.0435, Avg Accuracy: 98.54%, Avg PI: 0.4561, Avg Surprise: 0.6989, Avg Tau: 0.0489, Avg LR-Mod: 0.9580
+MNIST_Val set: Avg loss: 0.0592, Accuracy: 98.20%, Avg PI: 0.3308, Avg Surprise: 0.7308, Avg Tau: 0.0357
+FashionMNIST_OOD_Val set: Avg loss: 7.0874, Accuracy: 8.63%, Avg PI: 0.0000, Avg Surprise: 20.9138, Avg Tau: 0.3908
+
+Final checkpoint saved to: output/ViT/checkpoints\tiny-gbp-mnist--single-final.pth
