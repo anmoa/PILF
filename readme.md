@@ -1,31 +1,48 @@
-# **Technical Notes: PILF (Predictive Integrity Learning Framework)**
+# Predictive Integrity Learning Framework (PILF)
 
-**Document Version:** 3.0
+> "Don't just train your model, understand its mind."
 
-**Core Concept:** A cognitive learning framework designed to transform fixed hyperparameters (like learning rate, model capacity) into dynamic policies driven in real-time by the intrinsic "surprise" (`Surprise`) of data. It is essentially an **adaptive hyperparameter scheduling algorithm** that allows a model to autonomously decide "how much to learn" and "with what capacity to learn" based on the value of the learning content. This framework originates from the Integrated Predictive Workspace Theory, with further details available in the paper at https://github.com/dmf-archive/IPWT.
-
----
-
-## **1. Design Philosophy: From "Fixed Rules" to "Dynamic Policies"**
-
-Traditional training paradigms rely on manually set hyperparameters that are typically fixed or decay according to a predetermined schedule throughout the training process. This "one-size-fits-all" approach ignores the vast differences in learning value contained in different data batches.
-
-PILF's design philosophy is: **to replace static, human-set rules with dynamic, data-driven policies.**
-
-It no longer blindly uses a fixed learning rate or model capacity. Instead, it dynamically and proportionally adjusts its learning behavior by assessing the `Surprise` from each data batch:
-
-1. **Dynamic Learning Rate**: When `Surprise` is moderate, it signals valuable "learnable zone" information, and the system assigns a higher learning rate. When `Surprise` is too low (redundant information) or too high (anomalous information), it assigns a learning rate close to zero, naturally achieving "ignore" and "reject" effects. **This directly replaces manually set learning rate schedulers.**
-2. **Dynamic Capacity**: In a Mixture-of-Experts (MoE) architecture, `Surprise` not only adjusts the learning rate but also determines the number of "experts" `k` to activate. Simple tasks (low `Surprise`) require only a few experts, while complex tasks (high `Surprise`) dynamically engage more experts. **This replaces fixed Top-K routing.**
+<p align="center">
+  <a href="./README.md">English</a> | <a href="./README_ZH.md">中文</a>
+</p>
 
 ---
 
-## **2. Core Implementation: From PILR-S to PILF**
+Core Concept: A cognitive learning framework designed to transform fixed hyperparameters (e.g., learning rate, model capacity) into dynamic strategies driven by the intrinsic "Surprise" of data. It is essentially an adaptive hyperparameter scheduling algorithm that allows the model to autonomously decide "how much to learn" and "how much capacity to use" based on the value of the learning content. This framework originates from the IPWT (Integrated Predictive Workspace Theory), with related paper information available at <https://github.com/dmf-archive/IPWT.>
 
-### **Stage 1: PILR-S (Predictive Integrity-driven Learning Rate Scheduler)**
+## 1. Design Philosophy: From "Fixed Rules" to "Dynamic Strategies"
 
-PILR-S is the direct application of the PILF idea on **any standard neural network**. It focuses on one question: **How to dynamically adjust the learning rate based on `Surprise`?** This is achieved using the core calculation toolkit from the [SigmaPI](https://github.com/dmf-archive/SigmaPI) project, which is a required dependency. The testing framework and experiments for PILF are detailed in Section 3.
+Traditional training paradigms rely on manually set hyperparameters that are typically fixed or decay according to a predetermined schedule throughout the training process (e.g., learning rate). This "one-size-fits-all" approach ignores the vast differences in learning value contained within different data batches.
 
-It replaces the traditional "gating" logic of whether to execute `optimizer.step()` with a smooth, continuous learning rate modulator.
+PILF's design philosophy is: **to replace static, human-set rules with dynamic, data-driven strategies.**
+
+It no longer blindly uses a fixed learning rate or fixed model capacity, but instead dynamically and proportionally adjusts its learning behavior by real-time evaluating the `Surprise` brought by each batch of data:
+
+1. **Dynamic Learning Rate**: When `Surprise` is moderate, it means valuable "learnable" information has been encountered, and the system will allocate a higher learning rate; when `Surprise` is too low (redundant information) or too high (anomalous information), a learning rate close to zero will be allocated, thereby naturally achieving the effects of "ignoring" and "rejecting." **This directly replaces manually set learning rate schedulers.**
+2. **Dynamic Capacity**: In the MoE architecture, `Surprise` not only regulates the learning rate but also determines the number of "experts" `k` that need to be activated. Simple tasks (low `Surprise`) require only a few experts, while complex tasks (high `Surprise`) will dynamically mobilize more experts to participate. **This replaces fixed Top-K routing.**
+
+## 2. Core Implementation: Evolution Stages of PILF
+
+The evolution of PILF is divided into four main stages, each building upon the previous one, gradually achieving more advanced adaptive capabilities:
+
+### Stage Zero: MoE-GBP (Gated Backpropagation)
+
+In traditional training, selective weight updates are performed through a gating mechanism to mitigate catastrophic forgetting. The execution of `optimizer.step()` is controlled by a binary gating signal based on the `Surprise` metric. As a precursor to PILF, it validated the effectiveness of selective learning based on PI, laying the foundation for subsequent dynamic learning rate and capacity scheduling.
+
+```mermaid
+graph TD
+    Input --> Model
+    Model --> Surprise["Surprise Calculation"]
+    Surprise --> Gate["Binary Gate (based on Surprise)"]
+    Gate -- "If Open" --> OptimizerStep["Optimizer.step()"]
+    OptimizerStep --> ModelUpdate["Model Update"]
+```
+
+### Stage One: PILR-S (Predictive Integrity Learning Rate Scheduler)
+
+PILR-S is the direct application of the PILF idea to **any standard neural network**. It focuses on one question: **How to dynamically adjust the learning rate based on `Surprise`?** This is achieved through the core computational toolkit [SigmaPI](https://github.com/dmf-archive/SigmaPI), which is a necessary dependency for this project. Details of the PILF testing framework and experiments can be found in Section 3.
+
+It replaces the traditional "gating" logic of whether `optimizer.step()` is executed, evolving into a smooth, continuous learning rate modulator.
 
 ```mermaid
 sequenceDiagram
@@ -35,11 +52,11 @@ sequenceDiagram
     participant LRScheduler as PILR-S
     participant Optimizer
 
-    Trainer->>Model: Feedforward
+    Trainer->>Model: Forward Propagation (Feedforward)
     Model-->>Trainer: Return logits
 
     Trainer->>SigmaPI_Monitor: calculate(model, logits)
-    SigmaPI_Monitor-->>Trainer: Return pi_metrics (incl. Surprise)
+    SigmaPI_Monitor-->>Trainer: Return pi_metrics (including Surprise)
 
     Trainer->>LRScheduler: update(Surprise)
     activate LRScheduler
@@ -54,15 +71,17 @@ sequenceDiagram
     Trainer->>Optimizer: Restore base_lr
 ```
 
-**Mechanism Explained:**
+**Mechanism Details:**
 
-1. **`Surprise` Calculation**: Currently, `Surprise` is calculated using the norm of the backpropagation gradients. In the future, it is entirely feasible to use accumulated gradients from the Forward-Forward Algorithm as the source of surprise. This process would not need to wait for expensive backpropagation, allowing for a rapid assessment of learning value.
-2. **Dynamic Modulation**: The PILR-S module receives the `Surprise` and calculates a smooth modulation factor `lr_modifier` (ranging from 0 to 1) using a Gaussian function `exp(-0.5 * ((surprise - mu) / sigma)^2)`, based on its relationship with the Exponential Moving Average (EMA) and standard deviation (std) of `Surprise`.
-3. **Weight Update**: The standard `loss.backward()` is executed only after `lr_modifier` is calculated. Subsequently, the `optimizer` uses `effective_lr = base_lr * lr_modifier` to perform the weight update. `optimizer.step()` is **always executed**, but its update magnitude has been pre-emptively and dynamically scaled by `Surprise`.
+1. **`Surprise` Calculation**: Currently, we use the backpropagation gradient norm for calculation, but in the future, Forward Forward accumulated gradients could be considered as a source of surprise. This process does not require waiting for expensive backpropagation, enabling rapid assessment of learning value.
+2. **Dynamic Modulation**: The PILR-S module receives `Surprise` and calculates a smooth modulation factor `lr_modifier` (ranging from 0 to 1) using a Gaussian function `exp(-0.5 * ((surprise - mu) / sigma)^2)` based on its relationship with the Exponential Moving Average (EMA) and standard deviation (std) of `Surprise`.
+3. **Weight Update**: After `lr_modifier` is calculated, standard `loss.backward()` is executed. Subsequently, the `optimizer` uses `effective_lr = base_lr * lr_modifier` to perform weight updates. `optimizer.step()` **is always executed**, but its update magnitude has been dynamically scaled by `Surprise` beforehand.
 
-### **Stage 2: PILF (The Complete Form - Dynamic Learning Rate + Dynamic Capacity)**
+### Stage Two: PIL-MoE (Predictive Integrity-driven Mixture of Experts - Static Top-K) (Current Stage)
 
-PILF is the full implementation on an MoE architecture, extending the dynamic scheduling concept to model capacity allocation.
+**Goal:** Introduce PILR-S's dynamic learning rate mechanism into the MoE architecture, combined with static Top-K hard routing, while only updating the weights of activated experts.
+**Core Mechanism:** `effective_lr = base_lr * f(Surprise)` is applied to the MoE architecture. The gating network routes tasks to experts based on a static Top-K value, and only the weights of activated experts are updated.
+**Advantages:** Introduces data-driven learning rates in the MoE architecture, while improving training efficiency through selective updates and laying the foundation for subsequent dynamic capacity allocation.
 
 ```mermaid
 graph TD
@@ -70,11 +89,10 @@ graph TD
     
     subgraph DynamicPolicy [Surprise-Driven Dynamic Policy]
         direction LR
-        InitialSurprise -- "g(Surprise)" --> k_Value["k = g(S)"]
         InitialSurprise -- "f(Surprise)" --> lr_mod_Value["lr_mod = f(S)"]
     end
 
-    k_Value --> HierarchicalGatingNetwork["Hierarchical Gating (route to k experts)"]
+    StaticK["Static Top-K"] --> HierarchicalGatingNetwork["Hierarchical Gating (route to k experts)"]
     HierarchicalGatingNetwork --> MicroExpertPool[...]
     
     MicroExpertPool --> Aggregator
@@ -92,55 +110,63 @@ graph TD
     OptimizerStep -- Updates only active experts & gating --> FinalModel
 ```
 
-**Training Loop Explained:**
+### Stage Three: PILD-MoE (Predictive Integrity-driven Dynamic Mixture of Experts)
 
-1. **Dual Dynamic Decision**: The model receives data and calculates an initial `Surprise`. Based on this `Surprise`, PILF makes two decisions in parallel:
-    - **Capacity Decision**: `k = g(Surprise)`, determining how many experts to activate.
-    - **Learning Rate Decision**: `lr_modifier = f(Surprise)`, determining the learning intensity.
-2. **Dynamic Routing and Computation**: The gating network routes the task to the most appropriate experts based on the `k` value.
-3. **Dynamic Weight Update**: After calculating the loss and gradients, the optimizer uses the effective learning rate modulated by `lr_modifier` to update **only the activated experts and the gating network**.
+**Goal:** Achieve a fully adaptive cognitive system where `Surprise` not only regulates the learning rate but also dynamically scales the number of activated experts `k`.
+**Core Mechanism:** `k = g(Surprise)` and `effective_lr = base_lr * f(Surprise)` operate in parallel. The model dynamically adjusts the number of activated experts and learning intensity based on data complexity.
+**Advantages:** Maximizes computational efficiency and model capacity scalability, truly achieving on-demand allocation of computational resources.
 
----
+```mermaid
+graph TD
+    Input --> InitialSurprise["Initial Surprise"]
+    InitialSurprise --> k_Value["k = g(Surprise)"]
+    InitialSurprise --> lr_mod_Value["lr_mod = f(Surprise)"]
+    k_Value --> GatingNetwork["Dynamic Gating (route to k experts)"]
+    GatingNetwork --> Experts["Active Experts"]
+    Experts --> LossCalculation
+    LossCalculation --> SelectiveUpdate["Selective Update (active experts)"]
+    lr_mod_Value --> SelectiveUpdate
+    SelectiveUpdate --> FinalModel["Model Update"]
+```
 
-## **3. Model Zoo & Experiments**
+## 3. Model Zoo and Experiments
 
-Our test suite is now centered around a lightweight (~1M parameter) Vision Transformer architecture to facilitate rapid experimentation on cognitive learning principles. We compare three main variants on CIFAR-10, using SVHN as an Out-of-Distribution (OOD) validation set.
+Our test suite is now built around a lightweight (~1M parameters) Vision Transformer architecture to facilitate rapid experimentation with cognitive learning principles. We compared three main variants on the CIFAR-10 dataset, using SVHN as an out-of-distribution (OOD) validation set.
 
-The goal is to observe how different learning strategies perform under resource constraints, providing a clearer view of the benefits of mechanisms like Gated Backpropagation (GBP).
+The goal is to observe the performance of different learning strategies under resource constraints, thereby more clearly demonstrating the advantages of mechanisms like PILR-S (Predictive Integrity Learning Rate Scheduler).
 
-**"Don't just train your model. Understand its mind."**
-
-| **Baseline ViT** | **4x1 MoE-ViT** | **16x4 MoE-ViT** | **16x4 GBP-MoE-ViT with 3σ Learning** |
-| :---: | :---: | :---: | :---: |
+| **Baseline ViT** | **4x1 MoE-ViT** | **16x4 MoE-ViT** | **16x4 PILR-S-MoE-ViT with 3σ Learning** |
+| :--:| :--:| :--:| :--:|
 | ~0.81M | ~1.21M | ~1.23M | ~1.23M |
-| <img src="output/ViT/legacy_img/20250626-BASE_ViT-Params_0.81M.png" style="max-width:200px;"> | <img src="output/ViT/legacy_img/20250626-MOE_4x1_ViT-Params_1.21M.png" style="max-width:200px;"> | <img src="output/ViT/legacy_img/20250626-MOE_16x4_ViT-Params_1.23M.png" style="max-width:200px;"> | <img src="output/ViT/legacy_img/20250626-GBP_MOE_ViT-Params_1.23M.png" style="max-width:200px;"> |
+| <img src="output/ViT/img/legacy_img/20250626-BASE_ViT-Params_0.81M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-MOE_4x1_ViT-Params_1.21M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-MOE_16x4_ViT-Params_1.23M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-GBP_MOE_ViT-Params_1.23M.png" style="max-width:200px;"> |
 
-### MNIST Rehearsal Experiments
+### MNIST Spaced Rehearsal Experiments
 
-We also conducted rehearsal experiments on MNIST and FashionMNIST datasets to further explore continual learning capabilities.
+We also conducted spaced rehearsal experiments on the MNIST and FashionMNIST datasets to further explore continuous learning capabilities.
 
-| **8x2 all time (FashionMNIST -> MNIST)** | **8x2 in pretrain + 8x2 GBP in rehearsal (FashionMNIST -> MNIST)** | **8x2 GBP all time (FashionMNIST -> MNIST)** |
-| :---: | :---: | :---: |
-| <img src="output/ViT/20250627-tiny-moe-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/20250627-tiny-gbp-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/20250627-tiny-gbp-2-mnist-mnist-rehearsal.png" style="max-width:200px;"> |
+| **8x2 Full (FashionMNIST -> MNIST)** | **8x2 Pre-trained + 8x2 PILR-S Spaced Rehearsal (FashionMNIST -> MNIST)** | **8x2 PILR-S Full (FashionMNIST -> MNIST) (1.2σ)** |
+| :--:| :--:| :--:|
+| ~0.26M | ~0.26M | ~0.26M |
+| <img src="output/ViT/img/20250627-tiny-moe-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-2-mnist-mnist-rehearsal.png" style="max-width:200px;"> |
 
----
+## 4. Installation and Usage
 
-## **4. Installation & Usage**
-
-This project relies on the `sigma-pi` package for core calculations. To replicate the experiments and use the full testing framework, you must first clone this repository.
+This project relies on the `sigma-pi` package for core computations. To reproduce experiments and use the full testing framework, you must first clone this repository.
 
 ```bash
 git clone https://github.com/dmf-archive/PILF.git
 cd PILF
 ```
 
-**Note:** This package does not automatically install PyTorch. Please manually install the appropriate version for your system (CPU or CUDA) before proceeding. For CUDA-enabled systems, it is recommended to use `uv` or `pip`:
+**Note:** This package does not automatically install PyTorch. Please manually install the appropriate version for your system (CPU or CUDA) before proceeding. For CUDA-enabled systems, it is recommended to install using `uv` or `pip`:
+
 ```bash
-# Example for CUDA 12.1
+# CUDA 12.1 Example
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
 After setting up PyTorch, install the testing framework dependencies:
+
 ```bash
 pip install -e .[dev]
 ```
@@ -149,67 +175,51 @@ The testing framework is modular and configuration-driven.
 
 ### 4.1. Configure Your Experiment
 
-Create or modify a configuration file in `test/configs/`. For example, `test/configs/base_vit.py`:
+Create or modify a configuration file in the `test/configs/` directory. For example, `test/configs/base_vit.py`:
 
 ```python
 # test/configs/base_vit.py
 
-# Model parameters
+# Model Parameters
 model_config = {
     'model_type': 'base',
     'embed_dim': 128,
     'depth': 6,
-    # ... other model params
+    # ... Other model parameters
 }
 
-# Training parameters
+# Training Parameters
 train_config = {
     'epochs': 20,
     'batch_size': 256,
-    # ... other training params
+    # ... Other training parameters
 }
 ```
 
-### 4.2. Run the Experiment
+### 4.2. Run Experiments
 
-Launch the experiment from the root directory using the `test/run_experiment.py` script:
+Launch experiments from the root directory using the `test/run_experiment.py` script:
 
 ```bash
 python test/run_experiment.py --config test/configs/base_vit.py
 ```
 
-To run the other variants, simply point to their respective config files:
+To run other variants, simply point to their respective configuration files:
 
 ```bash
 # Run MoE-ViT experiment
 python test/run_experiment.py --config test/configs/moe_vit.py
 
-# Run GBP-MoE-ViT experiment
+# Run PILR-S-MoE-ViT experiment
 python test/run_experiment.py --config test/configs/gbp_moe_vit.py
 ```
 
----
+## 5. Theoretical Contributions
 
-## **5. Theoretical Contributions**
-
-- **Transforms Hyperparameters into Policies**: Converts learning rate and model capacity from developer-set "static hyperparameters" into "dynamic policies" that the model adjusts autonomously based on data value.
-- **Unifies "Learning" and "Forgetting"**: By linking the learning rate to `Surprise`, PILF provides a unified framework to handle learning, ignoring (low `Surprise` leads to low `lr`), and rejecting (high `Surprise` leads to low `lr`), thereby intrinsically mitigating catastrophic forgetting.
-- **On-Demand Resource Allocation**: (PILF) achieves true on-demand computation, where simple tasks consume minimal resources, and complex tasks dynamically call upon more resources, significantly improving efficiency.
+- **Transforming Hyperparameters into Strategies**: Transforms learning rates and model capacities from "static hyperparameters" set by developers into "dynamic strategies" autonomously adjusted by the model based on data value.
+- **Unifying "Learning" and "Forgetting"**: By linking the learning rate to `Surprise`, PILF provides a unified framework to handle learning, ignoring (low `Surprise` leads to low `lr`), and rejecting (high `Surprise` leads to low `lr`), thereby intrinsically mitigating catastrophic forgetting.
+- **On-Demand Allocation of Computational Resources**: (PILF) achieves true on-demand computation, where simple tasks consume minimal resources, while complex tasks dynamically call upon more resources, greatly improving efficiency.
 
 ---
 
-## **6. Evolution Path**
-
-- **Stage 1: PILR-S (Dynamic Learning Rate)**
-  - **Goal:** Replace fixed learning rate schedulers with a `Surprise`-driven dynamic learning rate on any standard model.
-  - **Core Mechanism:** `effective_lr = base_lr * f(Surprise)`.
-  - **Advantage:** No need to modify the model architecture; can be a drop-in replacement for existing training workflows to quickly validate the effectiveness of the dynamic policy.
-
-- **Stage 2: PILF (Dynamic Learning Rate + Dynamic Capacity)**
-  - **Goal:** Implement a fully adaptive cognitive system on an MoE architecture.
-  - **Core Mechanism:** `k = g(Surprise)` and `effective_lr = base_lr * f(Surprise)` operate in parallel.
-  - **Advantage:** Maximizes computational efficiency and model capacity scalability.
-
----
-
-This project is licensed under the AGPLv3. See the `LICENSE` file for details.
+This project is licensed under the AGPLv3 License. See the `LICENSE` file for details.

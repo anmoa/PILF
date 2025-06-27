@@ -1,5 +1,6 @@
 import os
 import sys
+import json # Import json module
 
 import torch
 import torch.nn as nn
@@ -125,7 +126,7 @@ def execute_training_loop(
     model, optimizer, loss_fn, pi_monitor, device, model_name,
     train_loader, val_loaders: Dict[str, DataLoader],
     epochs: int, accumulation_steps: int, output_dir: str,
-    use_pilr: bool,
+    use_pilr: bool, sigma_factor: float, # Added sigma_factor
     start_epoch: int = 1, global_step: int = 0,
     train_fn_kwargs: Dict[str, Any] = {}
 ):
@@ -135,6 +136,9 @@ def execute_training_loop(
     for val_set_name in val_loaders.keys():
         for key in ['loss', 'acc', 'pi', 'surprise', 'tau']: # val sets don't have lr_mod
             epoch_metrics[f'{val_set_name}_{key}'] = []
+
+    # Data structure to store all metrics for JSON export
+    all_metrics_data = []
 
     best_val_acc = 0.0
     patience_counter = 0
@@ -146,7 +150,7 @@ def execute_training_loop(
         train_output = train(
             model, device, train_loader, optimizer, epoch, loss_fn, 
             pi_monitor, step_metrics, epoch_metrics, global_step, 
-            accumulation_steps, use_pilr=use_pilr, **train_fn_kwargs
+            accumulation_steps, use_pilr=use_pilr, sigma_threshold=sigma_factor, **train_fn_kwargs # Pass sigma_factor
         )
 
         # Handle different return values based on PILR mode
@@ -162,6 +166,14 @@ def execute_training_loop(
 
         current_val_pi = 0.0
         current_val_acc = 0.0
+        
+        epoch_data = {
+            "epoch": epoch,
+            "global_step_end": global_step - 1,
+            "train_metrics": {key: epoch_metrics[f'train_{key}'][-1][1] if epoch_metrics[f'train_{key}'] else None for key in metric_keys},
+            "val_metrics": {}
+        }
+
         for name, loader in val_loaders.items():
             val_loss, val_acc, val_pi, val_surprise, val_tau = validate(model, device, loader, loss_fn, pi_monitor, dataset_name=name)
             epoch_metrics[f'{name}_loss'].append((global_step - 1, val_loss))
@@ -170,9 +182,19 @@ def execute_training_loop(
             epoch_metrics[f'{name}_surprise'].append((global_step - 1, val_surprise))
             epoch_metrics[f'{name}_tau'].append((global_step - 1, val_tau))
             
+            epoch_data["val_metrics"][name] = {
+                "loss": val_loss,
+                "acc": val_acc,
+                "pi": val_pi,
+                "surprise": val_surprise,
+                "tau": val_tau
+            }
+            
             if name.startswith('MNIST_Val'): # Assuming MNIST_Val is the primary validation set for Grokking
                 current_val_pi = val_pi
                 current_val_acc = val_acc
+
+        all_metrics_data.append(epoch_data)
 
         # Check for early stopping condition
         if current_val_pi >= 0.95 and current_val_acc >= 99.0:
@@ -191,15 +213,34 @@ def execute_training_loop(
         else:
             patience_counter = 0 # Reset patience if condition is not met
 
-    return model, global_step, step_metrics, epoch_metrics
+    return model, global_step, step_metrics, epoch_metrics, all_metrics_data # Return all_metrics_data
 
-def run_experiment(config, config_path: str, task_name_suffix: str = "", checkpoint_path: str = None):
+def run_experiment(config, config_path: str, task_name_suffix: str = "", checkpoint_path: str = None, sigma_factor: float = None): # Added sigma_factor
     train_cfg = config.train_config
-    log_dir = os.path.join(train_cfg['output_dir'], 'log')
-    os.makedirs(log_dir, exist_ok=True)
-    current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    output_base_dir = train_cfg['output_dir']
+    
+    current_time_iso = datetime.now().strftime("%Y%m%dT%H%M%S")
     config_name = os.path.basename(config_path).replace('.py', '').replace('_', '-')
-    log_file_name = f"{current_time}-{config_name}{task_name_suffix}.log"
+    
+    # Determine sigma_value for filename
+    if sigma_factor is not None:
+        sigma_value_str = f"{sigma_factor:.1f}".replace('.', '_') # Format for filename
+    else:
+        # Try to get from config if not passed as arg (for non-PILR models or default)
+        sigma_value_from_config = train_cfg.get('train_fn_kwargs', {}).get('sigma_threshold')
+        if sigma_value_from_config is not None:
+            sigma_value_str = f"{sigma_value_from_config:.1f}".replace('.', '_')
+        else:
+            sigma_value_str = "control" # For non-PILR or if sigma not specified
+
+    file_prefix = f"{current_time_iso}_{config_name}"
+    if sigma_value_str != "control":
+        file_prefix += f"_sigma_{sigma_value_str}"
+    file_prefix += task_name_suffix
+
+    log_dir = os.path.join(output_base_dir, 'log')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file_name = f"{file_prefix}.log"
     log_file_path = os.path.join(log_dir, log_file_name)
 
     original_stdout = sys.stdout
@@ -208,7 +249,6 @@ def run_experiment(config, config_path: str, task_name_suffix: str = "", checkpo
     print(f"Logging output to: {log_file_path}")
 
     try:
-        config_name = os.path.basename(config_path).replace('.py', '').replace('_', '-')
         model, optimizer, loss_fn, pi_monitor, device, model_name = setup_experiment(
             config, base_model_name=config_name, model_name_suffix=f"-{task_name_suffix}", checkpoint_path=checkpoint_path
         )
@@ -230,24 +270,47 @@ def run_experiment(config, config_path: str, task_name_suffix: str = "", checkpo
 
         use_pilr = (config.model_config.get('model_type') == 'pilr_moe')
         train_fn_kwargs = train_cfg.get('train_fn_kwargs', {})
-
-        model, _, step_metrics, epoch_metrics = execute_training_loop(
+        
+        # Pass sigma_factor to execute_training_loop
+        model, _, step_metrics, epoch_metrics, all_metrics_data = execute_training_loop(
             model=model, optimizer=optimizer, loss_fn=loss_fn, pi_monitor=pi_monitor,
             device=device, model_name=model_name,
             train_loader=train_loader, val_loaders=val_loaders,
             epochs=train_cfg['epochs'], accumulation_steps=train_cfg['accumulation_steps'],
             use_pilr=use_pilr,
-            output_dir=train_cfg['output_dir'],
+            sigma_factor=sigma_factor if sigma_factor is not None else train_fn_kwargs.get('sigma_threshold', 1.0), # Pass sigma_factor
+            output_dir=output_base_dir,
             train_fn_kwargs=train_fn_kwargs
         )
         
         # Save final checkpoint
-        checkpoint_dir = os.path.join(train_cfg['output_dir'], 'checkpoints')
+        checkpoint_dir = os.path.join(output_base_dir, 'checkpoints')
         os.makedirs(checkpoint_dir, exist_ok=True)
-        checkpoint_name = f"{model_name}-final.pth"
+        checkpoint_name = f"{file_prefix}-final.pth" # Use new naming convention
         checkpoint_path = os.path.join(checkpoint_dir, checkpoint_name)
         torch.save(model.state_dict(), checkpoint_path)
         print(f"\nFinal checkpoint saved to: {checkpoint_path}")
+
+        # Save all metrics data to JSON
+        json_output_dir = os.path.join(output_base_dir, 'json_results')
+        os.makedirs(json_output_dir, exist_ok=True)
+        json_file_name = f"{file_prefix}.json" # Use new naming convention
+        json_file_path = os.path.join(json_output_dir, json_file_name)
+        
+        json_data = {
+            "metadata": {
+                "model_name": model_name,
+                "sigma_factor": sigma_factor if sigma_factor is not None else train_fn_kwargs.get('sigma_threshold', 1.0),
+                "train_dataset": train_dataset_name,
+                "val_datasets": list(val_loaders.keys())
+            },
+            "epoch_data": all_metrics_data, # Use epoch_data for clarity
+            "step_metrics": {k: v for k, v in step_metrics.items() if v} # Include step metrics if needed for frontend
+        }
+        
+        with open(json_file_path, 'w') as f:
+            json.dump(json_data, f, indent=4)
+        print(f"\nAll metrics saved to JSON: {json_file_path}")
 
         plot_metrics_kwargs = {}
         if use_pilr:
@@ -259,8 +322,9 @@ def run_experiment(config, config_path: str, task_name_suffix: str = "", checkpo
                 if 'train_lr_mod' in epoch_metrics:
                     plot_metrics_kwargs['lr_mod_values'] = epoch_metrics['train_lr_mod']
 
-        plot_metrics(step_metrics, epoch_metrics, train_cfg['output_dir'], model_name=model_name, **plot_metrics_kwargs)
-        print(f"\nPlots saved to: {os.path.abspath(train_cfg['output_dir'])}")
+        # Pass the file_prefix to plot_metrics for consistent naming
+        plot_metrics(step_metrics, epoch_metrics, os.path.join(output_base_dir, 'img'), model_name=file_prefix, **plot_metrics_kwargs) # Changed output_dir to img subfolder
+        print(f"\nPlots saved to: {os.path.abspath(os.path.join(output_base_dir, 'img'))}")
 
     finally:
         sys.stdout = original_stdout
@@ -275,6 +339,7 @@ def main():
     parser.add_argument('--train_dataset', type=str, default='CIFAR10', help="Dataset for training.")
     parser.add_argument('--val_dataset', type=str, default='CIFAR10', help="Dataset for validation.")
     parser.add_argument('--ood_dataset', type=str, default='SVHN', help="Dataset for out-of-distribution validation.")
+    parser.add_argument('--sigma_factor', type=float, default=None, help="Sigma factor for PILR-S (overrides config if provided).") # Added sigma_factor
     args = parser.parse_args()
 
     # Load config module
@@ -287,7 +352,7 @@ def main():
     config.train_config['val_dataset'] = args.val_dataset
     config.train_config['ood_dataset'] = args.ood_dataset
     
-    run_experiment(config, config_path=args.config, task_name_suffix=f"-{args.task}", checkpoint_path=args.checkpoint_path)
+    run_experiment(config, config_path=args.config, task_name_suffix=f"-{args.task}", checkpoint_path=args.checkpoint_path, sigma_factor=args.sigma_factor) # Pass sigma_factor
 
 if __name__ == "__main__":
     main()

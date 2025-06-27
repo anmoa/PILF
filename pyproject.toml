@@ -28,10 +28,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "torch>=2.5.1+cu121",
-    "torchvision",
     "matplotlib",
-    "sigma-pi>=0.2.1",
+    "packaging>=25.0",
+    "sigma-pi>=0.2.3",
 ]
 
 [project.urls]
@@ -40,9 +39,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "build",
-    "twine",
-    "hatch",
     "mypy",
 ]
 

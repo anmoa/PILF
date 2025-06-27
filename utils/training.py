@@ -12,7 +12,7 @@ def gaussian_modulation(surprise, mu, sigma):
 
 def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor, 
           step_metrics, epoch_metrics, global_step, accumulation_steps, 
-          use_pilr=False, initial_surprise_ema=None, sigma_threshold=3.0, pilr_mode='gate'):
+          use_pilr=False, initial_surprise_ema=None, sigma_threshold=1.0, pilr_mode='gate'): # Default sigma_threshold to 1.0
     model.train()
     optimizer.zero_grad()
 
@@ -77,7 +77,7 @@ def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor,
                     epoch_summary['decisions'].append((global_step, decision))
                 
                 elif pilr_mode == 'lr_scheduler':
-                    lr_modulation = gaussian_modulation(surprise, ema_surprise, std_dev) # Example decay_rate
+                    lr_modulation = gaussian_modulation(surprise, ema_surprise, sigma_threshold * std_dev) # Use sigma_threshold as multiplier
                     effective_lr = base_lr * lr_modulation
                     for param_group in optimizer.param_groups:
                         param_group['lr'] = effective_lr
