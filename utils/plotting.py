@@ -63,6 +63,13 @@ def plot_metrics(
     plots_data['sigma']['Experts'] = kwargs.get('expert_sigma_values')
 
     active_plots = [key for key, data in plots_data.items() if any(data.values())]
+    
+    # Check for decision data from epoch_summary
+    if 'surprise_values' in epoch_metrics and 'decisions' in epoch_metrics:
+        if epoch_metrics['surprise_values'] and epoch_metrics['decisions']:
+            kwargs['pilr_surprise_values'] = epoch_metrics['surprise_values']
+            kwargs['pilr_decisions'] = epoch_metrics['decisions']
+
     if kwargs.get('pilr_decisions') and kwargs.get('pilr_surprise_values'):
         if 'pilr_decisions' not in active_plots: active_plots.append('pilr_decisions')
 

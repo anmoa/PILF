@@ -24,6 +24,7 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
         'lr_mod': [], 'sigma': [],
         'gating_lr_mod': [], 'gating_sigma': [],
         'expert_lr_mod': [], 'expert_sigma': [],
+        'consolidate': [], 'ignore': [], 'reject': [], # Add decision tracking
     }
 
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -75,6 +76,13 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
                 # For backward compatibility with single-PISA surprise logging
                 if 'surprise_value' in pilr_metrics and 'surprise_values' in epoch_summary:
                      epoch_summary['surprise_values'].append((global_step, pilr_metrics['surprise_value']))
+                
+                # Log decision for plotting
+                if 'decision' in pilr_metrics:
+                    epoch_summary['surprise_values'].append((global_step, pi_metrics['surprise']))
+                    epoch_summary['decisions'].append((global_step, pilr_metrics['decision']))
+                    epoch_summary[pilr_metrics['decision'].lower()].append(1)
+
 
             global_step += 1
         
@@ -96,6 +104,14 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
         summary_str += f", Avg Expert LR-Mod: {avg_metrics['expert_lr_mod']:.4f}"
     print(summary_str)
     
+    # Add decision stats to summary string
+    consolidate_count = len(epoch_summary['consolidate'])
+    ignore_count = len(epoch_summary['ignore'])
+    reject_count = len(epoch_summary['reject'])
+    total_decisions = consolidate_count + ignore_count + reject_count
+    if total_decisions > 0:
+        print(f"Decision Stats: Consolidate: {100*consolidate_count/total_decisions:.1f}%, Ignore: {100*ignore_count/total_decisions:.1f}%, Reject: {100*reject_count/total_decisions:.1f}%")
+
     # Return all metrics collected during the epoch
     return global_step, epoch_summary
 

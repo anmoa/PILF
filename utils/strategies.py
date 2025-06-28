@@ -52,7 +52,7 @@ class SelectiveUpdate(UpdateStrategy):
         return {}
 
 class PisaUpdate(UpdateStrategy):
-    def __init__(self, optimizer: optim.Optimizer, device: torch.device, **kwargs):
+    def __init__(self, optimizer: optim.Optimizer, device: torch.device, crisis_threshold: float = 1.2, **kwargs):
         super().__init__(optimizer, **kwargs)
         self.device = device
         self.param_groups = {pg.get('name', 'base'): pg for pg in self.optimizer.param_groups}
@@ -60,6 +60,7 @@ class PisaUpdate(UpdateStrategy):
         
         self.alpha = torch.tensor(kwargs.get('alpha', 1.0), device=self.device)
         self.gamma = torch.tensor(kwargs.get('gamma', 0.5), device=self.device)
+        self.crisis_threshold = crisis_threshold
 
         # Check for dual PISA mode
         is_dual_mode = 'gating' in self.param_groups and 'experts' in self.param_groups
@@ -86,6 +87,10 @@ class PisaUpdate(UpdateStrategy):
 
     def _step_single(self, model: nn.Module, pi_metrics: Dict[str, Any]) -> Dict[str, Any]:
         surprise = torch.tensor(pi_metrics['surprise'], device=self.device)
+        
+        if surprise.item() >= self.crisis_threshold:
+            return {'lr_mod': 0.0, 'sigma': self.pisa_adaptor.get_sigma().item(), 'decision': 'REJECT'}
+
         self.pisa_adaptor.step(surprise.item())
         
         sigma = self.pisa_adaptor.get_sigma()
@@ -101,7 +106,7 @@ class PisaUpdate(UpdateStrategy):
         for name, pg in self.param_groups.items():
             pg['lr'] = self.base_lrs[name]
             
-        return {'lr_mod': lr_modulation.item(), 'sigma': sigma.item()}
+        return {'lr_mod': lr_modulation.item(), 'sigma': sigma.item(), 'decision': 'CONSOLIDATE'}
 
     def _step_dual(self, model: nn.Module, pi_metrics: Dict[str, Any]) -> Dict[str, Any]:
         gating_grads = [p.grad for p in self.param_groups['gating']['params'] if p.grad is not None]
@@ -109,6 +114,24 @@ class PisaUpdate(UpdateStrategy):
 
         gating_surprise = get_surprise_from_grads_torch(gating_grads)
         expert_surprise = get_surprise_from_grads_torch(expert_grads)
+
+        total_surprise = gating_surprise + expert_surprise
+        if total_surprise.item() >= self.crisis_threshold:
+            # Still calculate PI metrics for logging even if not updating
+            tau = torch.tensor(pi_metrics.get('tau', 0.0), device=self.device)
+            epsilon = torch.tensor(pi_metrics.get('epsilon', 0.0), device=self.device)
+            normalized_error = epsilon / (tau + 1e-9)
+            cognitive_cost = (1 - self.gamma) * normalized_error + self.gamma * total_surprise
+            pi_score = torch.exp(-self.alpha * cognitive_cost)
+            return {
+                'gating_lr_mod': 0.0,
+                'gating_sigma': self.pisa_gating.get_sigma().item(),
+                'expert_lr_mod': 0.0,
+                'expert_sigma': self.pisa_expert.get_sigma().item(),
+                'pi_score': pi_score.item(),
+                'surprise': total_surprise.item(),
+                'decision': 'REJECT'
+            }
 
         self.pisa_gating.step(gating_surprise.item())
         self.pisa_expert.step(expert_surprise.item())
@@ -132,7 +155,6 @@ class PisaUpdate(UpdateStrategy):
                 pg['lr'] = self.base_lrs[name]
 
         # Calculate global metrics for monitoring
-        total_surprise = gating_surprise + expert_surprise
         tau = torch.tensor(pi_metrics.get('tau', 0.0), device=self.device)
         epsilon = torch.tensor(pi_metrics.get('epsilon', 0.0), device=self.device)
         
@@ -147,4 +169,5 @@ class PisaUpdate(UpdateStrategy):
             'expert_sigma': sigma_expert.item(),
             'pi_score': pi_score.item(),
             'surprise': total_surprise.item(),
+            'decision': 'CONSOLIDATE'
         }

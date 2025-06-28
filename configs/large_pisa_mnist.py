@@ -23,5 +23,6 @@ model_config = {
         'expert_beta': 0.15,
         'gating_initial_var': 0.5,
         'gating_beta': 0.15,
+        'crisis_threshold': 1.2, # Added for PISA+GBP hybrid mode
     }
 }
