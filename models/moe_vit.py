@@ -118,6 +118,8 @@ class MoEVisionTransformer(VisionTransformer):
         ]
 
     def zero_inactive_expert_grads(self, all_gating_logits):
+        if all_gating_logits is None:
+            return
         with torch.no_grad():
             for i, block in enumerate(self.blocks):
                 if hasattr(block.mlp, 'experts'):

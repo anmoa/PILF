@@ -9,6 +9,10 @@ PILF/
 ├── configs/      # 存放所有模型的架构配置文件
 ├── schedules/    # 存放所有实验的调度配置文件
 ├── models/       # 模型定义的包
+│   ├── __init__.py
+│   ├── base_vit.py
+│   ├── moe_vit.py
+│   └── gpil_moe.py
 ├── utils/        # 训练、验证、绘图等辅助工具
 │   ├── __init__.py
 │   ├── plotting.py

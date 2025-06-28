@@ -25,14 +25,26 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
         'gating_lr_mod': [], 'gating_sigma': [],
         'expert_lr_mod': [], 'expert_sigma': [],
         'consolidate': [], 'ignore': [], 'reject': [], # Add decision tracking
+        'all_top_indices': [], 'all_log_probs': [],
     }
+
+    all_top_indices = None
+    all_log_probs = None
 
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
 
         output = model(data)
-        logits = output[0] if isinstance(output, tuple) else output
-        all_gating_logits = output[1] if isinstance(output, tuple) else None
+        
+        # Unpack model output
+        if isinstance(output, tuple) and len(output) == 3: # GPIL-MoE case
+            logits, all_top_indices, all_log_probs = output
+            all_gating_logits = all_log_probs # For compatibility with PISA update
+        elif isinstance(output, tuple): # Other MoE cases
+            logits, all_gating_logits = output
+        else: # Base ViT case
+            logits = output
+            all_gating_logits = None
 
         loss = loss_fn(logits, target)
         loss_normalized = loss / accumulation_steps
@@ -45,7 +57,20 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
         if (batch_idx + 1) % accumulation_steps == 0:
             pi_metrics = pi_monitor.calculate(model, loss, logits)
             
-            pilr_metrics = update_strategy.step(model, loss, pi_metrics, all_gating_logits)
+            # For GPIL-MoE, we also need to pass the top_indices for sparse gradient updates
+            if isinstance(model, nn.DataParallel):
+                is_gpil_moe = hasattr(model.module, 'zero_inactive_expert_grads')
+            else:
+                is_gpil_moe = hasattr(model, 'zero_inactive_expert_grads')
+
+            if is_gpil_moe:
+                pilr_metrics = update_strategy.step(model, loss, pi_metrics, all_gating_logits)
+                if isinstance(model, nn.DataParallel):
+                    model.module.zero_inactive_expert_grads(all_top_indices)
+                else:
+                    model.zero_inactive_expert_grads(all_top_indices)
+            else:
+                pilr_metrics = update_strategy.step(model, loss, pi_metrics, all_gating_logits)
 
             # In dual PISA mode, the strategy calculates its own global PI metrics.
             # We should use those for logging instead of the ones from the global monitor.
@@ -86,7 +111,12 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
 
             global_step += 1
         
-    avg_metrics = {key: sum(vals) / len(vals) if vals else 0 for key, vals in epoch_summary.items() if isinstance(vals, list) and key not in ['surprise_values', 'decisions']}
+    if all_top_indices is not None:
+        epoch_summary['all_top_indices'].append(all_top_indices)
+    if all_log_probs is not None:
+        epoch_summary['all_log_probs'].append(all_log_probs)
+
+    avg_metrics = {key: sum(vals) / len(vals) if vals else 0 for key, vals in epoch_summary.items() if isinstance(vals, list) and key not in ['surprise_values', 'decisions', 'all_top_indices', 'all_log_probs']}
     
     for key, avg_val in avg_metrics.items():
         metric_name = f'train_{key}'
@@ -105,12 +135,13 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
     print(summary_str)
     
     # Add decision stats to summary string
-    consolidate_count = len(epoch_summary['consolidate'])
-    ignore_count = len(epoch_summary['ignore'])
-    reject_count = len(epoch_summary['reject'])
-    total_decisions = consolidate_count + ignore_count + reject_count
-    if total_decisions > 0:
-        print(f"Decision Stats: Consolidate: {100*consolidate_count/total_decisions:.1f}%, Ignore: {100*ignore_count/total_decisions:.1f}%, Reject: {100*reject_count/total_decisions:.1f}%")
+    if hasattr(update_strategy, 'crisis_threshold') and update_strategy.crisis_threshold is not None:
+        consolidate_count = len(epoch_summary['consolidate'])
+        ignore_count = len(epoch_summary['ignore'])
+        reject_count = len(epoch_summary['reject'])
+        total_decisions = consolidate_count + ignore_count + reject_count
+        if total_decisions > 0:
+            print(f"Decision Stats: Consolidate: {100*consolidate_count/total_decisions:.1f}%, Ignore: {100*ignore_count/total_decisions:.1f}%, Reject: {100*reject_count/total_decisions:.1f}%")
 
     # Return all metrics collected during the epoch
     return global_step, epoch_summary

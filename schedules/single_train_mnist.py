@@ -9,16 +9,16 @@ schedule_config = {
 
     # A single task defining the training run.
     'tasks': [
-        ('MNIST', 30),
+        ('MNIST', 50),
     ],
 
     # Training parameters
     'train_config': {
-        'batch_size': 1024,
+        'batch_size': 2048,
         'accumulation_steps': 1,
         'learning_rate': 1e-3,
         'weight_decay': 1e-4,
-        'output_dir': 'output/ViT/',
+        'output_dir': 'output/ViT/Grokking_PI',
     },
 
     # PI Monitor parameters

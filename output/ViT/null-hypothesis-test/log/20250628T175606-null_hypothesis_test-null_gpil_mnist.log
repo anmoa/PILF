@@ -1,0 +1,18 @@
+Logging output to: output/ViT/null-hypothesis-test/log\20250628T175606-null_hypothesis_test-null_gpil_mnist.log
+Model Suffix: -null_hypothesis_test
+Total Trainable Parameters: 0.26M
+Using parameter groups for GPIL-MoE optimizer.
+Files already downloaded and verified
+Files already downloaded and verified
+
+==================== CYCLE 1/1 ====================
+
+--- Training on MNIST for 10 epoch(s) ---
+Train Epoch 1 Summary: Avg loss: 1.8376, Avg Accuracy: 32.44%, Avg PI: 0.0145, Avg Surprise: 9.4865, Avg Tau: 1.9444
+Train Epoch 2 Summary: Avg loss: 1.2949, Avg Accuracy: 53.81%, Avg PI: 0.0118, Avg Surprise: 9.0773, Avg Tau: 1.4830
+Train Epoch 3 Summary: Avg loss: 0.9213, Avg Accuracy: 68.18%, Avg PI: 0.0124, Avg Surprise: 8.9511, Avg Tau: 1.1188
+Train Epoch 4 Summary: Avg loss: 0.6867, Avg Accuracy: 76.91%, Avg PI: 0.0162, Avg Surprise: 8.3747, Avg Tau: 0.8431
+Train Epoch 5 Summary: Avg loss: 0.5151, Avg Accuracy: 83.48%, Avg PI: 0.0181, Avg Surprise: 8.0219, Avg Tau: 0.6436
+Train Epoch 6 Summary: Avg loss: 0.4105, Avg Accuracy: 86.94%, Avg PI: 0.0210, Avg Surprise: 7.7793, Avg Tau: 0.5043
+Train Epoch 7 Summary: Avg loss: 0.3393, Avg Accuracy: 89.43%, Avg PI: 0.0253, Avg Surprise: 7.3128, Avg Tau: 0.4108
+Train Epoch 8 Summary: Avg loss: 0.2954, Avg Accuracy: 90.57%, Avg PI: 0.0314, Avg Surprise: 6.6513, Avg Tau: 0.3504

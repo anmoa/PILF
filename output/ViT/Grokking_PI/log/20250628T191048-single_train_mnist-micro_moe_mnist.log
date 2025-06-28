@@ -1,0 +1,32 @@
+Logging output to: output/ViT/Grokking_PI\log\20250628T191048-single_train_mnist-micro_moe_mnist.log
+Model Suffix: -single_train_mnist
+Total Trainable Parameters: 0.16M
+Using parameter groups for optimizer.
+
+==================== CYCLE 1/1 ====================
+
+--- Training on MNIST for 50 epoch(s) ---
+Train Epoch 1 Summary: Avg loss: 2.0260, Avg Accuracy: 25.90%, Avg PI: 0.3859, Avg Surprise: 0.9875, Avg Tau: 2.0745
+Train Epoch 2 Summary: Avg loss: 1.4539, Avg Accuracy: 47.98%, Avg PI: 0.2124, Avg Surprise: 2.5458, Avg Tau: 1.6037
+Train Epoch 3 Summary: Avg loss: 1.1648, Avg Accuracy: 59.17%, Avg PI: 0.1602, Avg Surprise: 3.1266, Avg Tau: 1.3452
+Train Epoch 4 Summary: Avg loss: 0.9007, Avg Accuracy: 69.02%, Avg PI: 0.1577, Avg Surprise: 3.0723, Avg Tau: 1.1045
+Train Epoch 5 Summary: Avg loss: 0.7152, Avg Accuracy: 75.57%, Avg PI: 0.1529, Avg Surprise: 3.1952, Avg Tau: 0.8801
+Train Epoch 6 Summary: Avg loss: 0.5723, Avg Accuracy: 81.09%, Avg PI: 0.1608, Avg Surprise: 3.0138, Avg Tau: 0.7100
+Train Epoch 7 Summary: Avg loss: 0.4493, Avg Accuracy: 85.45%, Avg PI: 0.1737, Avg Surprise: 2.9119, Avg Tau: 0.5633
+Train Epoch 8 Summary: Avg loss: 0.3597, Avg Accuracy: 88.71%, Avg PI: 0.1870, Avg Surprise: 2.6947, Avg Tau: 0.4570
+Train Epoch 9 Summary: Avg loss: 0.3073, Avg Accuracy: 90.42%, Avg PI: 0.1915, Avg Surprise: 2.6673, Avg Tau: 0.3794
+Train Epoch 10 Summary: Avg loss: 0.2749, Avg Accuracy: 91.40%, Avg PI: 0.1923, Avg Surprise: 2.6805, Avg Tau: 0.3351
+Train Epoch 11 Summary: Avg loss: 0.2424, Avg Accuracy: 92.42%, Avg PI: 0.2182, Avg Surprise: 2.3323, Avg Tau: 0.2896
+Train Epoch 12 Summary: Avg loss: 0.2304, Avg Accuracy: 92.74%, Avg PI: 0.2102, Avg Surprise: 2.4460, Avg Tau: 0.2740
+Train Epoch 13 Summary: Avg loss: 0.1988, Avg Accuracy: 93.92%, Avg PI: 0.2791, Avg Surprise: 1.7636, Avg Tau: 0.2387
+Train Epoch 14 Summary: Avg loss: 0.1863, Avg Accuracy: 94.18%, Avg PI: 0.2758, Avg Surprise: 1.7784, Avg Tau: 0.2174
+Train Epoch 15 Summary: Avg loss: 0.1732, Avg Accuracy: 94.61%, Avg PI: 0.3174, Avg Surprise: 1.4511, Avg Tau: 0.1998
+Train Epoch 16 Summary: Avg loss: 0.1633, Avg Accuracy: 94.88%, Avg PI: 0.3172, Avg Surprise: 1.4480, Avg Tau: 0.1869
+Train Epoch 17 Summary: Avg loss: 0.1514, Avg Accuracy: 95.30%, Avg PI: 0.3207, Avg Surprise: 1.4123, Avg Tau: 0.1715
+Train Epoch 18 Summary: Avg loss: 0.1432, Avg Accuracy: 95.55%, Avg PI: 0.3183, Avg Surprise: 1.4226, Avg Tau: 0.1605
+Train Epoch 19 Summary: Avg loss: 0.1352, Avg Accuracy: 95.76%, Avg PI: 0.3379, Avg Surprise: 1.3062, Avg Tau: 0.1515
+Train Epoch 20 Summary: Avg loss: 0.1220, Avg Accuracy: 96.20%, Avg PI: 0.3974, Avg Surprise: 1.0014, Avg Tau: 0.1435
+Train Epoch 21 Summary: Avg loss: 0.1195, Avg Accuracy: 96.18%, Avg PI: 0.3792, Avg Surprise: 1.0637, Avg Tau: 0.1319
+Train Epoch 22 Summary: Avg loss: 0.1124, Avg Accuracy: 96.42%, Avg PI: 0.3798, Avg Surprise: 1.0591, Avg Tau: 0.1252
+Train Epoch 23 Summary: Avg loss: 0.1072, Avg Accuracy: 96.59%, Avg PI: 0.3892, Avg Surprise: 1.0033, Avg Tau: 0.1195
+Train Epoch 24 Summary: Avg loss: 0.1023, Avg Accuracy: 96.79%, Avg PI: 0.4060, Avg Surprise: 0.9327, Avg Tau: 0.1149

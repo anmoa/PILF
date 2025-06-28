@@ -77,7 +77,7 @@ sequenceDiagram
 2. **动态调制**: PILR-S 模块接收 `Surprise`，并根据其与 `Surprise` 的指数移动平均（EMA）和标准差（std）的关系，通过一个高斯函数 `exp(-0.5 * ((surprise - mu) / sigma)^2)` 计算出一个平滑的调制因子 `lr_modifier` (范围在 0 到 1 之间)。
 3. **权重更新**: 在计算出 `lr_modifier` 后，才执行标准的 `loss.backward()`。随后，`optimizer` 使用 `effective_lr = base_lr * lr_modifier` 来执行权重更新。`optimizer.step()` **总是被执行**，但其更新的幅度已被 `Surprise` 预先动态缩放。
 
-### 阶段二：PIL-MoE (预测完整性学习驱动的 MoE - 静态 Top-K) (当前阶段)
+### 阶段二：PIL-MoE (预测完整性学习驱动的 MoE - 静态 Top-K)
 
 **目标:** 将 PILR-S 的动态学习率机制引入 MoE 架构，并结合静态 Top-K 硬路由，同时只更新激活的专家权重。
 
@@ -131,30 +131,59 @@ graph LR
     SelectiveUpdate --> FinalModel["Model Update"]
 ```
 
-### 阶段四：G²PIL (Generative Gaussian Predictive Integrity Learning)
+### 阶段四：G²PIL (Generative Gaussian Predictive Integrity Learning) (当前阶段)
 
-**目标：** 构建一个完全自组织、自我巩固、自我演化的认知架构，实现从“被动学习”到“主动创造”的终极飞跃。
+**目标：** 构建一个完全自组织、自我巩固、自我演化的认知架构，实现从“被动学习”到“主动创造”的终极飞跃。我们当前正处于该阶段的早期，专注于实现其核心的路由机制。
 
-**核心机制：**
+**核心机制 (当前实现): Proto-Routing**
+
+我们用一种基于“原型”的路由机制取代了传统的线性门控，这是迈向 G²PIL 的第一步。
+
+1. **专家原型 (Expert Prototypes)**: 每个专家在共享的嵌入空间中拥有一个可学习的“原型”向量，代表其“知识领域”。
+2. **输入探针 (Input Probe)**: 输入 token 的嵌入直接作为“探针”。
+3. **路由即匹配 (Routing as Matching)**: 路由过程是计算探针与所有原型之间的余弦相似度。
+4. **软决策，稀疏更新 (Soft Decision, Sparse Update)**:
+   - **前向传播 (Soft Decision)**: 使用`softmax`将相似度转换为权重，最终输出是**所有**专家输出的加权和，保证了梯度的平滑流动。
+   - **反向传播 (Sparse Update)**: 只更新与输入最相似的`top-k`个专家的权重（包括其 MLP 层和原型向量），迫使专家形成功能分区，利于知识沉淀。
+
+```mermaid
+graph LR
+    subgraph InputProcessing [ ]
+        direction LR
+        Input --> Probe["Input as Probe (Token Embedding)"]
+    end
+
+    subgraph Routing [Proto-Routing]
+        direction LR
+        Probe -- "Cosine Similarity" --> Similarity["Similarity Scores"]
+        Prototypes["Expert Prototypes"] -- "Cosine Similarity" --> Similarity
+    end
+
+    subgraph ExpertExecution [ ]
+        direction LR
+        Similarity -- Softmax --> Weights
+        Weights -- "Weighted Sum" --> ExpertOutputs["Σ(w_i * Expert_i(x))"]
+        ExpertOutputs --> FinalOutput["Final Output"]
+    end
+
+    subgraph SparseUpdate [Sparse Gradient Update]
+        direction LR
+        Similarity -- top-k --> ActiveIndices["Top-k Indices"]
+        ActiveIndices --> GradientMask["Generate Gradient Mask"]
+        GradientMask -- "Apply to" --> ExpertGradients["Expert Gradients"]
+        GradientMask -- "Apply to" --> PrototypeGradients["Prototype Gradients"]
+    end
+
+    InputProcessing --> Routing --> ExpertExecution
+    Routing --> SparseUpdate
+```
+
+**未来方向 (G²PIL 的完整愿景):**
 
 1. **高斯场域认知空间 (Gaussian Field Cognitive Space):**
-
-   - 彻底抛弃离散的、基于决策的门控网络。
-   - 整个系统是一个高维的、连续的“认知空间”。
-   - **专家即嵌入 (Expert as Embedding):** 每一个专家不再是一个被调用的函数，而是这个空间中的一个**高斯概率分布**，代表其“知识领域”或“专长范围”。
-   - **输入即探针 (Input as Probe):** 任何输入数据都被映射为此空间中的一个“探针”（一个点或一个更窄的高斯分布）。
-   - **激活即共鸣 (Activation as Resonance):** 路由过程被“Anycast”式的概率匹配取代。专家根据输入探针与其知识分布的重叠程度被“软激活”，其激活强度是连续的、概率性的。
-
+   - 将离散的原型向量升级为高斯概率分布，实现更平滑的概率性路由。
 2. **生成式记忆巩固 (Generative Memory Consolidation):**
-   - 引入一个并行的**生成模型 (Generative Model)**，作为系统的“潜意识”或“梦境引擎”。
-   - **清醒时学习世界：** 生成器在系统与外部世界交互时，学习真实数据的底层分布。
-   - **睡眠时创造世界：** 在没有外部输入时，生成器开始“做梦”，即**生成合成数据**。这些梦境数据包含了过去所有经验的抽象和混合。
-   - **自我重放与巩固：** 系统将这些内部生成的“梦境”作为复习材料，喂给自己。通过在梦境中“排演”，专家们得以维持其知识分布的稳定，抵抗遗忘。
-
-#### G²PIL = Gaussian × Generative
-
-- **Gaussian (高斯)** 解决了 **空间 (Space)** 的问题：它定义了知识**如何被组织和访问**。它创造了一个思想的几何学，让概念有了位置、关系和距离，让路由变得平滑、概率化和鲁棒。
-- **Generative (生成式)** 解决了 **时间 (Time)** 的问题：它定义了知识**如何被维持和演化**。它让系统摆脱了对外部数据存储的依赖，实现了记忆的内部巩固和创造性的自我重放。
+   - 引入一个并行的生成模型，用于生成合成数据进行“梦境排演”，以抵抗灾难性遗忘，实现知识的自我巩固。(尚未进行)
 
 ## 3. 安装与使用
 
@@ -220,12 +249,6 @@ python run_experiment.py --config configs/moe_vit.py
 # 运行 PILR-S-MoE-ViT 实验
 python run_experiment.py --config configs/gbp_moe_vit.py
 ```
-
-## 4. 理论贡献
-
-- **变超参数为策略**: 将学习率和模型容量从开发者设定的“静态超参数”转变为模型根据数据价值自主调节的“动态策略”。
-- **统一“学习”与“遗忘”**: 通过将学习率与 `Surprise` 挂钩，PILF 提供了一个统一的框架来处理学习、忽略（低`Surprise`导致低`lr`）和拒绝（高`Surprise`导致低`lr`），从而内在地缓解了灾难性遗忘。
-- **计算资源按需分配**: (PILF) 实现了真正的按需计算，简单的任务消耗极少资源，复杂的任务则动态调用更多资源，极大提升了效率。
 
 ---
 

@@ -77,7 +77,7 @@ sequenceDiagram
 2. **Dynamic Modulation**: The PILR-S module receives `Surprise` and calculates a smooth modulation factor `lr_modifier` (ranging from 0 to 1) using a Gaussian function `exp(-0.5 * ((surprise - mu) / sigma)^2)` based on its relationship with the Exponential Moving Average (EMA) and standard deviation (std) of `Surprise`.
 3. **Weight Update**: After `lr_modifier` is calculated, standard `loss.backward()` is executed. Subsequently, the `optimizer` uses `effective_lr = base_lr * lr_modifier` to perform weight updates. `optimizer.step()` **is always executed**, but its update magnitude has been dynamically scaled by `Surprise` beforehand.
 
-### Stage Two: PIL-MoE (Predictive Integrity-driven Learning Mixture of Experts - Static Top-K) (Current Stage)
+### Stage Two: PIL-MoE (Predictive Integrity-driven Learning Mixture of Experts - Static Top-K)
 
 **Goal:** Introduce PILR-S's dynamic learning rate mechanism into the MoE architecture, combined with static Top-K hard routing, while only updating the weights of activated experts.
 
@@ -133,30 +133,59 @@ graph LR
     SelectiveUpdate --> FinalModel["Model Update"]
 ```
 
-### Stage Four: G²PIL (Generative Gaussian Predictive Integrity Learning)
+### Stage Four: G²PIL (Generative Gaussian Predictive Integrity Learning) (Current Stage)
 
-**Goal:** Build a fully self-organizing, self-consolidating, and self-evolving cognitive architecture to achieve the ultimate leap from "passive learning" to "active creation."
+**Goal:** Build a fully self-organizing, self-consolidating, and self-evolving cognitive architecture to achieve the ultimate leap from "passive learning" to "active creation." We are currently in the early stages of this phase, focusing on implementing its core routing mechanism.
 
-**Core Mechanism:**
+**Core Mechanism (Current Implementation): Proto-Routing**
 
-1. **Gaussian Field Cognitive Space:**
+We have replaced the traditional linear gating with a prototype-based routing mechanism, which is the first step towards G²PIL.
 
-    - Completely abandons discrete, decision-based gating networks.
-    - The entire system is a high-dimensional, continuous "cognitive space."
-    - **Expert as Embedding:** Each expert is no longer a called function but a **Gaussian probability distribution** in this space, representing its "knowledge domain" or "area of expertise."
-    - **Input as Probe:** Any input data is mapped as a "probe" (a point or a narrower Gaussian distribution) in this space.
-    - **Activation as Resonance:** The routing process is replaced by "Anycast"-style probabilistic matching. Experts are "soft-activated" based on the overlap between the input probe and their knowledge distribution, with activation strength being continuous and probabilistic.
+1. **Expert Prototypes**: Each expert has a learnable "prototype" vector in a shared embedding space, representing its "knowledge domain."
+2. **Input Probe**: The embedding of the input token serves directly as a "probe."
+3. **Routing as Matching**: The routing process involves calculating the cosine similarity between the probe and all prototypes.
+4. **Soft Decision, Sparse Update**:
+    * **Forward Pass (Soft Decision)**: `softmax` is used to convert similarity scores into weights. The final output is a weighted sum of **all** expert outputs, ensuring a smooth gradient flow.
+    * **Backward Pass (Sparse Update)**: Only the weights of the `top-k` most similar experts (including their MLP layers and prototype vectors) are updated, forcing experts to form functional partitions and facilitating knowledge consolidation.
 
-2. **Generative Memory Consolidation:**
-    - Introduces a parallel **Generative Model** as the system's "subconscious" or "dream engine."
-    - **Learning the World While Awake:** The generator learns the underlying distribution of real data when the system interacts with the external world.
-    - **Creating the World While Asleep:** In the absence of external input, the generator begins to "dream," i.e., **generate synthetic data**. These dream data contain abstractions and mixtures of all past experiences.
-    - **Self-Replay and Consolidation:** The system feeds these internally generated "dreams" back to itself as rehearsal material. By "rehearsing" in dreams, experts maintain the stability of their knowledge distribution and resist forgetting.
+```mermaid
+graph LR
+    subgraph InputProcessing [ ]
+        direction LR
+        Input --> Probe["Input as Probe (Token Embedding)"]
+    end
 
-#### G²PIL = Gaussian × Generative
+    subgraph Routing [Proto-Routing]
+        direction LR
+        Probe -- "Cosine Similarity" --> Similarity["Similarity Scores"]
+        Prototypes["Expert Prototypes"] -- "Cosine Similarity" --> Similarity
+    end
 
-- **Gaussian** solves the problem of **Space**: It defines **how knowledge is organized and accessed**. It creates a geometry of thought, giving concepts position, relationships, and distance, making routing smooth, probabilistic, and robust.
-- **Generative** solves the problem of **Time**: It defines **how knowledge is maintained and evolved**. It frees the system from reliance on external data storage, enabling internal memory consolidation and creative self-replay.
+    subgraph ExpertExecution [ ]
+        direction LR
+        Similarity -- Softmax --> Weights
+        Weights -- "Weighted Sum" --> ExpertOutputs["Σ(w_i * Expert_i(x))"]
+        ExpertOutputs --> FinalOutput["Final Output"]
+    end
+    
+    subgraph SparseUpdate [Sparse Gradient Update]
+        direction LR
+        Similarity -- top-k --> ActiveIndices["Top-k Indices"]
+        ActiveIndices --> GradientMask["Generate Gradient Mask"]
+        GradientMask -- "Apply to" --> ExpertGradients["Expert Gradients"]
+        GradientMask -- "Apply to" --> PrototypeGradients["Prototype Gradients"]
+    end
+
+    InputProcessing --> Routing --> ExpertExecution
+    Routing --> SparseUpdate
+```
+
+**Future Directions (The Full Vision of G²PIL):**
+
+1. **Gaussian Field Cognitive Space**:
+    * Upgrade discrete prototype vectors to Gaussian probability distributions for smoother, more robust probabilistic routing.
+2. **Generative Memory Consolidation**:
+    * Introduce a parallel generative model to produce synthetic data for "dream rehearsals," to counter catastrophic forgetting and enable self-consolidation of knowledge.
 
 ## 3. Installation and Usage
 
@@ -222,12 +251,6 @@ python run_experiment.py --config configs/moe_vit.py
 # Run PILR-S-MoE-ViT experiment
 python run_experiment.py --config configs/gbp_moe_vit.py
 ```
-
-## 4. Theoretical Contributions
-
-- **Transforming Hyperparameters into Strategies**: Transforms learning rates and model capacities from "static hyperparameters" set by developers into "dynamic strategies" autonomously adjusted by the model based on data value.
-- **Unifying "Learning" and "Forgetting"**: By linking the learning rate to `Surprise`, PILF provides a unified framework to handle learning, ignoring (low `Surprise` leads to low `lr`), and rejecting (high `Surprise` leads to low `lr`), thereby intrinsically mitigating catastrophic forgetting.
-- **On-Demand Allocation of Computational Resources**: (PILF) achieves true on-demand computation, where simple tasks consume minimal resources, while complex tasks dynamically call upon more resources, greatly improving efficiency.
 
 ---
 

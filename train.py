@@ -10,7 +10,7 @@ from sigma_pi import SigmaPI
 from utils.training import train, validate
 from utils.plotting import plot_metrics
 from utils.strategies import UpdateStrategy, StandardUpdate, SelectiveUpdate, PisaUpdate
-from models import VisionTransformer, MoEVisionTransformer
+from models import VisionTransformer, MoEVisionTransformer, GPILMoEVisionTransformer
 from torchvision import datasets, transforms
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
@@ -43,6 +43,8 @@ def setup_experiment(model_config: Dict[str, Any], train_config: Dict[str, Any],
         model = VisionTransformer(**{k: v for k, v in model_config.items() if k != 'model_type'}).to(device)
     elif model_type in ['moe', 'pilr_moe', 'sel_moe']:
         model = MoEVisionTransformer(**model_config).to(device)
+    elif model_type == 'gpil_moe':
+        model = GPILMoEVisionTransformer(**model_config).to(device)
     else:
         raise ValueError(f"Unknown model_type: {model_type}")
 
@@ -55,11 +57,23 @@ def setup_experiment(model_config: Dict[str, Any], train_config: Dict[str, Any],
     print(f"Model Suffix: {model_name_suffix}")
     print(f"Total Trainable Parameters: {total_params/1e6:.2f}M")
 
-    if hasattr(model, 'get_param_groups'):
+    params: List[Dict[str, Any]]
+    if isinstance(model, GPILMoEVisionTransformer):
+        gating_params = [p for n, p in model.named_parameters() if 'expert_mus' in n or 'expert_log_sigmas' in n]
+        expert_params = [p for n, p in model.named_parameters() if 'experts' in n]
+        base_params = [p for n, p in model.named_parameters() if 'expert_mus' not in n and 'expert_log_sigmas' not in n and 'experts' not in n]
+        
+        params = [
+            {'name': 'gating', 'params': gating_params},
+            {'name': 'experts', 'params': expert_params},
+            {'name': 'base', 'params': base_params}
+        ]
+        print("Using parameter groups for GPIL-MoE optimizer.")
+    elif hasattr(model, 'get_param_groups'):
         params = model.get_param_groups()
         print("Using parameter groups for optimizer.")
     else:
-        params = model.parameters()
+        params = [{'params': model.parameters()}]
 
     optimizer = optim.AdamW(params, lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
     loss_fn = nn.CrossEntropyLoss()
@@ -102,6 +116,7 @@ def get_dataloaders(dataset_name: str, batch_size: int, img_size: int, num_worke
 
 def validate_and_record(model, device, dataloaders, loss_fn, pi_monitor, epoch_metrics, global_step):
     print(f"\n--- Validating at global step: {global_step} ---")
+    stop_early = False
     for val_name, val_loaders in dataloaders.items():
         val_loss, val_acc, val_pi, val_surprise, val_tau, val_gating_tau = validate(
             model, device, val_loaders['val'], loss_fn, pi_monitor, dataset_name=f"{val_name} Validation"
@@ -112,6 +127,13 @@ def validate_and_record(model, device, dataloaders, loss_fn, pi_monitor, epoch_m
         
         for metric_name, metric_val in metrics_to_log:
             epoch_metrics.setdefault(f'{val_name}_val_{metric_name}', []).append((global_step, metric_val))
+
+        # Early stopping check for this validation dataset
+        if val_acc > 95.0 and val_pi > 0.95 and val_surprise < 0.1:
+            print(f"Early stopping condition met for {val_name}: Acc > 95%, PI > 0.95, Surprise < 0.1")
+            stop_early = True
+            
+    return stop_early
 
 def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], schedule_path: str, model_config_path: str, checkpoint_path: Optional[str] = None):
     model_cfg = model_config
@@ -141,19 +163,26 @@ def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], 
             update_strategy: UpdateStrategy
             if model_type == 'moe':
                 update_strategy = StandardUpdate(optimizer)
-            elif model_type == 'sel_moe':
+            elif model_type == 'gpil_moe':
+                if 'train_fn_kwargs' in model_cfg:
+                    pisa_kwargs = model_cfg.get('train_fn_kwargs', {})
+                    pisa_kwargs.update(pi_cfg)
+                    update_strategy = PisaUpdate(optimizer, device=device, **pisa_kwargs)
+                else:
+                    update_strategy = StandardUpdate(optimizer)
+            elif model_type in ['sel_moe']:
                 update_strategy = SelectiveUpdate(optimizer)
             elif model_type == 'pilr_moe':
-                pisa_kwargs = model_cfg.get('train_fn_kwargs', {})
-                pisa_kwargs.update(pi_cfg)
-                update_strategy = PisaUpdate(optimizer, device=device, **pisa_kwargs)
+                    pisa_kwargs = model_cfg.get('train_fn_kwargs', {})
+                    pisa_kwargs.update(pi_cfg)
+                    update_strategy = PisaUpdate(optimizer, device=device, **pisa_kwargs)
             else:
                 # Default to standard for 'base' model or if unspecified
                 update_strategy = StandardUpdate(optimizer)
 
-            all_datasets = list(set(schedule_config['val_datasets'] + [task[0] for task in schedule_config['tasks']]))
+            all_datasets = list(set(schedule_config['val_datasets'] + [task[0] for task in schedule_config['tasks'] if task[0] != 'VALIDATE']))
             dataloaders = {
-                name: dict(zip(['train', 'val'], get_dataloaders(name, train_cfg['batch_size'], model_cfg.get('img_size', 32))))
+                name: dict(zip(['train', 'val'], get_dataloaders(name, train_cfg['batch_size'], model_cfg.get('img_size', 32), num_workers=0)))
                 for name in all_datasets
             }
             val_dataloaders = {name: {'val': dataloaders[name]['val']} for name in schedule_config['val_datasets']}
@@ -164,6 +193,7 @@ def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], 
                 'lr_mod': [], 'sigma': [],
                 'gating_lr_mod': [], 'gating_sigma': [],
                 'expert_lr_mod': [], 'expert_sigma': [],
+                'all_top_indices': [], 'all_log_probs': [],
             }
             global_step, total_epochs = 0, 0
             
@@ -171,7 +201,14 @@ def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], 
 
             for cycle in range(1, num_cycles + 1):
                 print(f"\n{'='*20} CYCLE {cycle}/{num_cycles} {'='*20}")
+                stop_training = False
                 for task_name, num_epochs_task in schedule_config['tasks']:
+                    if task_name == 'VALIDATE':
+                        if validate_and_record(model, device, val_dataloaders, loss_fn, pi_monitor, metrics['epoch'], global_step):
+                            stop_training = True
+                            break
+                        continue
+
                     # If num_epochs is None, use the one from train_config, else use the task-specific one
                     num_epochs = num_epochs_task if num_epochs_task is not None else train_cfg.get('epochs', 1)
                     print(f"\n--- Training on {task_name} for {num_epochs} epoch(s) ---")
@@ -190,8 +227,18 @@ def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], 
                         metrics['gating_sigma'].extend(epoch_summary.get('gating_sigma', []))
                         metrics['expert_lr_mod'].extend(epoch_summary.get('expert_lr_mod', []))
                         metrics['expert_sigma'].extend(epoch_summary.get('expert_sigma', []))
+                        metrics['all_top_indices'].extend(epoch_summary.get('all_top_indices', []))
+                        metrics['all_log_probs'].extend(epoch_summary.get('all_log_probs', []))
 
-                    validate_and_record(model, device, val_dataloaders, loss_fn, pi_monitor, metrics['epoch'], global_step)
+                if stop_training:
+                    print("Early stopping triggered. Moving to final checkpoint and plotting.")
+                    break 
+
+                # Final validation at the end of the cycle, unless the last task was already a validation
+                if schedule_config['tasks'] and schedule_config['tasks'][-1][0] != 'VALIDATE':
+                    if validate_and_record(model, device, val_dataloaders, loss_fn, pi_monitor, metrics['epoch'], global_step):
+                        print("Early stopping triggered after final validation.")
+                        break
                 
                 if num_cycles > 1:
                     checkpoint_dir = os.path.join(output_base_dir, 'checkpoints')
@@ -218,6 +265,8 @@ def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], 
                 gating_sigma_values=metrics.get('gating_sigma'),
                 expert_lr_mod_values=metrics.get('expert_lr_mod'),
                 expert_sigma_values=metrics.get('expert_sigma'),
+                all_top_indices=metrics.get('all_top_indices'),
+                all_log_probs=metrics.get('all_log_probs'),
             )
             print(f"\nPlots saved to: {os.path.abspath(os.path.join(output_base_dir, 'img'))}")
         finally:

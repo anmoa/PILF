@@ -52,7 +52,7 @@ class SelectiveUpdate(UpdateStrategy):
         return {}
 
 class PisaUpdate(UpdateStrategy):
-    def __init__(self, optimizer: optim.Optimizer, device: torch.device, crisis_threshold: float = 1.2, **kwargs):
+    def __init__(self, optimizer: optim.Optimizer, device: torch.device, crisis_threshold: Optional[float] = None, **kwargs):
         super().__init__(optimizer, **kwargs)
         self.device = device
         self.param_groups = {pg.get('name', 'base'): pg for pg in self.optimizer.param_groups}
@@ -78,7 +78,7 @@ class PisaUpdate(UpdateStrategy):
         if all_gating_logits is None:
             raise ValueError("PISA update requires a model that returns gating logits.")
         
-        model.zero_inactive_expert_grads(all_gating_logits)
+        # model.zero_inactive_expert_grads(all_gating_logits) # Removed as per user feedback
 
         if self.dual_mode:
             return self._step_dual(model, pi_metrics)
@@ -88,7 +88,7 @@ class PisaUpdate(UpdateStrategy):
     def _step_single(self, model: nn.Module, pi_metrics: Dict[str, Any]) -> Dict[str, Any]:
         surprise = torch.tensor(pi_metrics['surprise'], device=self.device)
         
-        if surprise.item() >= self.crisis_threshold:
+        if self.crisis_threshold is not None and surprise.item() >= self.crisis_threshold:
             return {'lr_mod': 0.0, 'sigma': self.pisa_adaptor.get_sigma().item(), 'decision': 'REJECT'}
 
         self.pisa_adaptor.step(surprise.item())
@@ -115,8 +115,8 @@ class PisaUpdate(UpdateStrategy):
         gating_surprise = get_surprise_from_grads_torch(gating_grads)
         expert_surprise = get_surprise_from_grads_torch(expert_grads)
 
-        total_surprise = gating_surprise + expert_surprise
-        if total_surprise.item() >= self.crisis_threshold:
+        total_surprise = torch.tensor(pi_metrics['surprise'], device=self.device)
+        if self.crisis_threshold is not None and total_surprise.item() >= self.crisis_threshold:
             # Still calculate PI metrics for logging even if not updating
             tau = torch.tensor(pi_metrics.get('tau', 0.0), device=self.device)
             epsilon = torch.tensor(pi_metrics.get('epsilon', 0.0), device=self.device)
