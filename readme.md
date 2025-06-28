@@ -3,12 +3,12 @@
 > "Don't just train your model, understand its mind."
 
 <p align="center">
-  <a href="./README.md">English</a> | <a href="./README_ZH.md">中文</a>
+  <a href="./README.md">English</a> | <a href="README_ZH.md">中文</a>
 </p>
 
 ---
 
-Core Concept: A cognitive learning framework designed to transform fixed hyperparameters (e.g., learning rate, model capacity) into dynamic strategies driven by the intrinsic "Surprise" of data. It is essentially an adaptive hyperparameter scheduling algorithm that allows the model to autonomously decide "how much to learn" and "how much capacity to use" based on the value of the learning content. This framework originates from the IPWT (Integrated Predictive Workspace Theory), with related paper information available at <https://github.com/dmf-archive/IPWT.>
+Core Concept: A cognitive learning framework designed to transform fixed hyperparameters (e.g., learning rate, model capacity) into dynamic strategies driven by the intrinsic "Surprise" of data. It is essentially an adaptive hyperparameter scheduling algorithm that allows the model to autonomously decide "how much to learn" and "how much capacity to use" based on the value of the learning content. This framework originates from the IPWT (Integrated Predictive Workspace Theory), with related paper information available at <https://github.com/dmf-archive/IPWT>
 
 ## 1. Design Philosophy: From "Fixed Rules" to "Dynamic Strategies"
 
@@ -23,7 +23,7 @@ It no longer blindly uses a fixed learning rate or fixed model capacity, but ins
 
 ## 2. Core Implementation: Evolution Stages of PILF
 
-The evolution of PILF is divided into four main stages, each building upon the previous one, gradually achieving more advanced adaptive capabilities:
+The evolution of PILF is divided into five main stages, each building upon the previous one, gradually achieving more advanced adaptive capabilities:
 
 ### Stage Zero: MoE-GBP (Gated Backpropagation)
 
@@ -77,10 +77,12 @@ sequenceDiagram
 2. **Dynamic Modulation**: The PILR-S module receives `Surprise` and calculates a smooth modulation factor `lr_modifier` (ranging from 0 to 1) using a Gaussian function `exp(-0.5 * ((surprise - mu) / sigma)^2)` based on its relationship with the Exponential Moving Average (EMA) and standard deviation (std) of `Surprise`.
 3. **Weight Update**: After `lr_modifier` is calculated, standard `loss.backward()` is executed. Subsequently, the `optimizer` uses `effective_lr = base_lr * lr_modifier` to perform weight updates. `optimizer.step()` **is always executed**, but its update magnitude has been dynamically scaled by `Surprise` beforehand.
 
-### Stage Two: PIL-MoE (Predictive Integrity-driven Mixture of Experts - Static Top-K) (Current Stage)
+### Stage Two: PIL-MoE (Predictive Integrity-driven Learning Mixture of Experts - Static Top-K) (Current Stage)
 
 **Goal:** Introduce PILR-S's dynamic learning rate mechanism into the MoE architecture, combined with static Top-K hard routing, while only updating the weights of activated experts.
+
 **Core Mechanism:** `effective_lr = base_lr * f(Surprise)` is applied to the MoE architecture. The gating network routes tasks to experts based on a static Top-K value, and only the weights of activated experts are updated.
+
 **Advantages:** Introduces data-driven learning rates in the MoE architecture, while improving training efficiency through selective updates and laying the foundation for subsequent dynamic capacity allocation.
 
 ```mermaid
@@ -113,7 +115,9 @@ graph TD
 ### Stage Three: PILD-MoE (Predictive Integrity-driven Dynamic Mixture of Experts)
 
 **Goal:** Achieve a fully adaptive cognitive system where `Surprise` not only regulates the learning rate but also dynamically scales the number of activated experts `k`.
+
 **Core Mechanism:** `k = g(Surprise)` and `effective_lr = base_lr * f(Surprise)` operate in parallel. The model dynamically adjusts the number of activated experts and learning intensity based on data complexity.
+
 **Advantages:** Maximizes computational efficiency and model capacity scalability, truly achieving on-demand allocation of computational resources.
 
 ```mermaid
@@ -128,6 +132,31 @@ graph TD
     lr_mod_Value --> SelectiveUpdate
     SelectiveUpdate --> FinalModel["Model Update"]
 ```
+
+### Stage Four: G²PIL (Generative Gaussian Predictive Integrity Learning)
+
+**Goal:** Build a fully self-organizing, self-consolidating, and self-evolving cognitive architecture to achieve the ultimate leap from "passive learning" to "active creation."
+
+**Core Mechanism:**
+
+1. **Gaussian Field Cognitive Space:**
+
+    - Completely abandons discrete, decision-based gating networks.
+    - The entire system is a high-dimensional, continuous "cognitive space."
+    - **Expert as Embedding:** Each expert is no longer a called function but a **Gaussian probability distribution** in this space, representing its "knowledge domain" or "area of expertise."
+    - **Input as Probe:** Any input data is mapped as a "probe" (a point or a narrower Gaussian distribution) in this space.
+    - **Activation as Resonance:** The routing process is replaced by "Anycast"-style probabilistic matching. Experts are "soft-activated" based on the overlap between the input probe and their knowledge distribution, with activation strength being continuous and probabilistic.
+
+2. **Generative Memory Consolidation:**
+    - Introduces a parallel **Generative Model** as the system's "subconscious" or "dream engine."
+    - **Learning the World While Awake:** The generator learns the underlying distribution of real data when the system interacts with the external world.
+    - **Creating the World While Asleep:** In the absence of external input, the generator begins to "dream," i.e., **generate synthetic data**. These dream data contain abstractions and mixtures of all past experiences.
+    - **Self-Replay and Consolidation:** The system feeds these internally generated "dreams" back to itself as rehearsal material. By "rehearsing" in dreams, experts maintain the stability of their knowledge distribution and resist forgetting.
+
+#### G²PIL = Gaussian × Generative
+
+- **Gaussian** solves the problem of **Space**: It defines **how knowledge is organized and accessed**. It creates a geometry of thought, giving concepts position, relationships, and distance, making routing smooth, probabilistic, and robust.
+- **Generative** solves the problem of **Time**: It defines **how knowledge is maintained and evolved**. It frees the system from reliance on external data storage, enabling internal memory consolidation and creative self-replay.
 
 ## 3. Model Zoo and Experiments
 

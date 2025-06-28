@@ -44,3 +44,13 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["run_experiment.py"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+]
+
+[tool.mypy]
+namespace_packages = true
+explicit_package_bases = true
+ignore_missing_imports = true

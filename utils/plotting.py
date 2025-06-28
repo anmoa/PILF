@@ -1,13 +1,13 @@
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 
 def plot_pilr_decisions(
     pilr_surprise_values: List[Tuple[int, float]],
     pilr_decisions: List[Tuple[int, str]],
     output_dir: str,
-    file_prefix: str # Changed model_name to file_prefix
+    file_prefix: str
 ) -> None:
     if not pilr_surprise_values or not pilr_decisions:
         print("No PILR decision data to plot.")
@@ -15,17 +15,14 @@ def plot_pilr_decisions(
 
     fig, ax = plt.subplots(figsize=(12, 7))
     
-    # Prepare data for plotting
     steps = [s for s, _ in pilr_surprise_values]
     surprise_vals = [v for _, v in pilr_surprise_values]
     decisions = [d for _, d in pilr_decisions]
 
-    # Map decisions to colors and markers
     color_map = {'CONSOLIDATE': 'green', 'IGNORE': 'blue', 'REJECT': 'red'}
     marker_map = {'CONSOLIDATE': 'o', 'IGNORE': 'x', 'REJECT': '^'}
     label_map = {'CONSOLIDATE': 'Consolidate (Update)', 'IGNORE': 'Ignore (No Update)', 'REJECT': 'Reject (No Update)'}
 
-    # Plot each decision type
     for decision_type in ['CONSOLIDATE', 'IGNORE', 'REJECT']:
         filtered_steps = [steps[i] for i, d in enumerate(decisions) if d == decision_type]
         filtered_surprise = [surprise_vals[i] for i, d in enumerate(decisions) if d == decision_type]
@@ -40,13 +37,13 @@ def plot_pilr_decisions(
                 alpha=0.6
             )
 
-    ax.set_title(f'PILR Decision vs. Surprise over Steps ({file_prefix})') # Use file_prefix
+    ax.set_title(f'PILR Decision vs. Surprise over Steps ({file_prefix})')
     ax.set_xlabel('Global Steps')
     ax.set_ylabel('Surprise (Gradient Norm)')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.7)
 
-    file_name = f"{file_prefix}-PILR_Decisions.png" # Use file_prefix for naming
+    file_name = f"{file_prefix}-PILR_Decisions.png"
     plt.savefig(os.path.join(output_dir, file_name))
     plt.close()
 
@@ -54,24 +51,22 @@ def plot_metrics(
     step_metrics: Dict[str, List[Tuple[int, float]]],
     epoch_metrics: Dict[str, List[Tuple[int, float]]],
     output_dir: str,
-    file_prefix: str, # Changed model_name to file_prefix
+    file_prefix: str,
     pilr_surprise_values: Optional[List[Tuple[int, float]]] = None,
     pilr_decisions: Optional[List[Tuple[int, str]]] = None,
     lr_mod_values: Optional[List[Tuple[int, float]]] = None
 ) -> None:
     
-    # Determine the number of subplots needed
     num_plots = len(['loss', 'acc', 'pi', 'surprise', 'tau'])
     if pilr_surprise_values and pilr_decisions:
-        num_plots += 1 # Add one for the PILR decision plot
-    if lr_mod_values: # Add one for LR-Mod plot
+        num_plots += 1
+    if lr_mod_values:
         num_plots += 1
 
-    # Adjust figsize based on number of plots
-    rows = (num_plots + 1) // 2 # 2 columns
-    fig = plt.figure(figsize=(10 * 2, 5 * rows)) # Adjust width and height per plot
+    rows = (num_plots + 1) // 2
+    fig = plt.figure(figsize=(10 * 2, 5 * rows))
 
-    fig.suptitle(file_prefix, fontsize=16) # Use file_prefix for suptitle
+    fig.suptitle(file_prefix, fontsize=16)
     
     metric_types = ['loss', 'acc', 'pi', 'surprise', 'tau']
     plot_titles = {
@@ -96,13 +91,11 @@ def plot_metrics(
         current_subplot_idx += 1
         plt.subplot(rows, 2, current_subplot_idx)
         
-        # Plot step-level data (only for training)
         train_key = f'train_{metric_type}'
         if train_key in step_metrics and step_metrics[train_key]:
             steps, values = zip(*step_metrics[train_key])
             plt.plot(steps, values, alpha=0.5, label=f'Train {metric_type} (Step)')
 
-        # Plot epoch-level data
         for key, data in epoch_metrics.items():
             if metric_type in key and data:
                 steps, values = zip(*data)
@@ -115,7 +108,6 @@ def plot_metrics(
         plt.legend()
         plt.grid(True)
 
-    # Add the LR-Mod plot if data is available
     if lr_mod_values:
         current_subplot_idx += 1
         plt.subplot(rows, 2, current_subplot_idx)
@@ -127,44 +119,38 @@ def plot_metrics(
         plt.legend()
         plt.grid(True)
 
-    # Add the PILR decision plot if data is available
     if pilr_surprise_values and pilr_decisions:
         current_subplot_idx += 1
-        plt.subplot(rows, 2, current_subplot_idx) # Place it in the next available subplot position
+        plt.subplot(rows, 2, current_subplot_idx)
         plot_pilr_decisions_internal(
-            plt.gca(), # Get current axes
+            plt.gca(),
             pilr_surprise_values,
             pilr_decisions,
-            file_prefix # Use file_prefix
+            file_prefix
         )
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to make room for suptitle
+    plt.tight_layout(rect=(0, 0.03, 1, 0.95)) # Changed list to tuple
     
-    # Ensure output_dir exists and save plot
-    os.makedirs(output_dir, exist_ok=True) # Create output_dir if it doesn't exist
-    file_name = f"{file_prefix}-Metrics.png" # Use file_prefix for naming
+    os.makedirs(output_dir, exist_ok=True)
+    file_name = f"{file_prefix}-Metrics.png"
     plt.savefig(os.path.join(output_dir, file_name))
     plt.close()
 
-# Internal helper for plotting PILR decisions on a given axes
 def plot_pilr_decisions_internal(
-    ax,
+    ax: Any,
     pilr_surprise_values: List[Tuple[int, float]],
     pilr_decisions: List[Tuple[int, str]],
-    file_prefix: str # Changed model_name to file_prefix
+    file_prefix: str
 ) -> None:
     
-    # Prepare data for plotting
     steps = [s for s, _ in pilr_surprise_values]
     surprise_vals = [v for _, v in pilr_surprise_values]
     decisions = [d for _, d in pilr_decisions]
 
-    # Map decisions to colors and markers
     color_map = {'CONSOLIDATE': 'green', 'IGNORE': 'blue', 'REJECT': 'red'}
     marker_map = {'CONSOLIDATE': 'o', 'IGNORE': 'x', 'REJECT': '^'}
     label_map = {'CONSOLIDATE': 'Consolidate (Update)', 'IGNORE': 'Ignore (No Update)', 'REJECT': 'Reject (No Update)'}
 
-    # Plot each decision type
     for decision_type in ['CONSOLIDATE', 'IGNORE', 'REJECT']:
         filtered_steps = [steps[i] for i, d in enumerate(decisions) if d == decision_type]
         filtered_surprise = [surprise_vals[i] for i, d in enumerate(decisions) if d == decision_type]

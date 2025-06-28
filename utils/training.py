@@ -1,28 +1,35 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms 
 from torch.utils.data import DataLoader
 import os
-from sigma_pi import SigmaPI
+from sigma_pi import SigmaPI 
 from utils.plotting import plot_metrics
+from typing import Dict, List, Tuple, Any, Optional, Sized
 
-def gaussian_modulation(surprise, mu, sigma):
+def gaussian_modulation(surprise: torch.Tensor, mu: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
     return torch.exp(-0.5 * ((surprise - mu) / (sigma + 1e-9)) ** 2)
 
-def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor, 
-          step_metrics, epoch_metrics, global_step, accumulation_steps, 
-          use_pilr=False, initial_surprise_ema=None, sigma_threshold=1.0, pilr_mode='gate'): # Default sigma_threshold to 1.0
+def train(model: nn.Module, device: torch.device, train_loader: DataLoader, optimizer: optim.Optimizer, epoch: int, loss_fn: nn.Module, pi_monitor: SigmaPI, 
+          step_metrics: Dict[str, List[Tuple[int, float]]], epoch_metrics: Dict[str, List[Tuple[int, float]]], global_step: int, accumulation_steps: int, 
+          use_pilr: bool = False, initial_surprise_ema: Optional[float] = None, sigma_threshold: float = 1.0, pilr_mode: str = 'lr_scheduler') -> Tuple[int, List[Tuple[int, float]], List[Tuple[int, str]]] | int:
     model.train()
     optimizer.zero_grad()
 
-    # PILR specific state
-    ema_surprise = initial_surprise_ema
-    ema_surprise_sq = initial_surprise_ema ** 2 if initial_surprise_ema is not None else None
-    ema_alpha = 0.1 # EMA smoothing factor
+    for key in ['train_loss', 'train_acc', 'train_pi', 'train_surprise', 'train_tau']:
+        step_metrics.setdefault(key, [])
+
+    ema_surprise: Optional[torch.Tensor] = None
+    ema_surprise_sq: Optional[torch.Tensor] = None
+    if initial_surprise_ema is not None:
+        ema_surprise = torch.tensor(initial_surprise_ema, device=device)
+        ema_surprise_sq = torch.tensor(initial_surprise_ema ** 2, device=device)
+    
+    ema_alpha = 0.1
     base_lr = optimizer.param_groups[0]['lr']
 
-    epoch_summary = {
+    epoch_summary: Dict[str, List[Any]] = {
         'loss': [], 'acc': [], 'pi': [], 'surprise': [], 'tau': [],
         'consolidate': [], 'ignore': [], 'reject': [],
         'surprise_values': [], 'decisions': [], 'lr_mod': []
@@ -57,9 +64,11 @@ def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor,
                     ema_surprise = surprise
                     ema_surprise_sq = surprise ** 2
                 else:
+                    assert ema_surprise is not None, "ema_surprise must be a Tensor here"
+                    assert ema_surprise_sq is not None, "ema_surprise_sq must be a Tensor here"
                     ema_surprise = ema_alpha * surprise + (1 - ema_alpha) * ema_surprise
                     ema_surprise_sq = ema_alpha * (surprise ** 2) + (1 - ema_alpha) * ema_surprise_sq
-                
+
                 variance = ema_surprise_sq - ema_surprise ** 2
                 std_dev = torch.sqrt(torch.clamp(variance, min=0))
 
@@ -77,7 +86,7 @@ def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor,
                     epoch_summary['decisions'].append((global_step, decision))
                 
                 elif pilr_mode == 'lr_scheduler':
-                    lr_modulation = gaussian_modulation(surprise, ema_surprise, sigma_threshold * std_dev) # Use sigma_threshold as multiplier
+                    lr_modulation = gaussian_modulation(surprise, ema_surprise, sigma_threshold * std_dev)
                     effective_lr = base_lr * lr_modulation
                     for param_group in optimizer.param_groups:
                         param_group['lr'] = effective_lr
@@ -86,18 +95,16 @@ def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor,
                 else:
                     raise ValueError(f"Unknown PILR mode: {pilr_mode}")
 
-            else: # Not using PILR
+            else:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
 
             optimizer.zero_grad()
 
-            # Reset learning rate if it was changed
             if use_pilr and pilr_mode == 'lr_scheduler':
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = base_lr
 
-            # Log metrics for all modes
             step_metrics['train_loss'].append((global_step, loss.item()))
             step_metrics['train_acc'].append((global_step, accuracy))
             step_metrics['train_pi'].append((global_step, pi_metrics['pi_score']))
@@ -119,7 +126,6 @@ def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor,
         if metric_name in epoch_metrics:
             epoch_metrics[metric_name].append((global_step - 1, avg_val))
 
-    # Print epoch summary
     summary_str = f"Train Epoch {epoch} Summary: Avg loss: {avg_metrics['loss']:.4f}, Avg Accuracy: {avg_metrics['acc']:.2f}%, Avg PI: {avg_metrics['pi']:.4f}, Avg Surprise: {avg_metrics['surprise']:.4f}, Avg Tau: {avg_metrics['tau']:.4f}"
     if use_pilr and pilr_mode == 'lr_scheduler':
         summary_str += f", Avg LR-Mod: {avg_metrics['lr_mod']:.4f}"
@@ -136,10 +142,12 @@ def train(model, device, train_loader, optimizer, epoch, loss_fn, pi_monitor,
     
     return global_step
 
-def validate(model, device, val_loader, loss_fn, pi_monitor, dataset_name="Validation"):
+def validate(model: nn.Module, device: torch.device, val_loader: DataLoader, loss_fn: nn.Module, pi_monitor: SigmaPI, dataset_name: str = "Validation") -> Tuple[float, float, float, float, float]:
     model.eval()
-    total_loss, correct = 0, 0
-    all_pi_scores, all_surprises, all_taus = [], [], []
+    total_loss, correct = 0.0, 0
+    all_pi_scores: List[float] = []
+    all_surprises: List[float] = []
+    all_taus: List[float] = []
 
     for data, target in val_loader:
         data, target = data.to(device), target.to(device)
@@ -160,13 +168,18 @@ def validate(model, device, val_loader, loss_fn, pi_monitor, dataset_name="Valid
         with torch.no_grad():
             total_loss += loss_epsilon.item()
             pred = logits.argmax(dim=1, keepdim=True)
-            correct = pred.eq(target.view_as(pred)).sum().item()
+            correct += pred.eq(target.view_as(pred)).sum().item()
 
     avg_loss = total_loss / len(val_loader)
-    accuracy = 100. * correct / len(val_loader.dataset)
-    avg_pi = sum(all_pi_scores) / len(all_pi_scores) if all_pi_scores else 0
-    avg_surprise = sum(all_surprises) / len(all_surprises) if all_surprises else 0
-    avg_tau = sum(all_taus) / len(all_taus) if all_taus else 0
+    
+    dataset = val_loader.dataset
+    if not isinstance(dataset, Sized):
+        raise TypeError("Dataset is not Sized, cannot calculate accuracy.")
+    
+    accuracy = 100. * correct / len(dataset)
+    avg_pi = sum(all_pi_scores) / len(all_pi_scores) if all_pi_scores else 0.0
+    avg_surprise = sum(all_surprises) / len(all_surprises) if all_surprises else 0.0
+    avg_tau = sum(all_taus) / len(all_taus) if all_taus else 0.0
 
     print(f"{dataset_name} set: Avg loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%, Avg PI: {avg_pi:.4f}, Avg Surprise: {avg_surprise:.4f}, Avg Tau: {avg_tau:.4f}")
     return avg_loss, accuracy, avg_pi, avg_surprise, avg_tau
