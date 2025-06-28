@@ -174,14 +174,19 @@ def main():
         use_pilr = (config.model_config.get('model_type') == 'pilr_moe')
         train_fn_kwargs = train_cfg.get('train_fn_kwargs', {})
         
-        model, _, step_metrics, epoch_metrics, _ = train(
+        step_metrics: Dict[str, List[Tuple[int, float]]] = {}
+        epoch_metrics: Dict[str, List[Tuple[int, float]]] = {}
+        
+        train_result = train(
             model=model, optimizer=optimizer, loss_fn=loss_fn, pi_monitor=pi_monitor,
             device=device, train_loader=train_loader, epoch=1,
-            step_metrics={}, epoch_metrics={}, global_step=0,
+            step_metrics=step_metrics, epoch_metrics=epoch_metrics, global_step=0,
             accumulation_steps=train_cfg['accumulation_steps'],
             use_pilr=use_pilr, **train_fn_kwargs
         )
         
+        _, surprise_values, decisions, lr_mods = train_result
+
         checkpoint_dir = os.path.join(output_base_dir, 'checkpoints')
         os.makedirs(checkpoint_dir, exist_ok=True)
         checkpoint_name = f"{file_prefix}-final.pth"
@@ -189,7 +194,8 @@ def main():
         torch.save(model.state_dict(), checkpoint_path)
         print(f"\nFinal checkpoint saved to: {checkpoint_path}")
 
-        plot_metrics({}, {}, os.path.join(output_base_dir, 'img'), file_prefix=file_prefix)
+        plot_metrics(step_metrics, epoch_metrics, os.path.join(output_base_dir, 'img'), file_prefix=file_prefix,
+                     pilr_surprise_values=surprise_values, pilr_decisions=decisions, lr_mod_values=lr_mods)
         print(f"\nPlots saved to: {os.path.abspath(os.path.join(output_base_dir, 'img'))}")
 
     finally:

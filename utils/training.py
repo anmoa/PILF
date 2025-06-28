@@ -13,7 +13,7 @@ def gaussian_modulation(surprise: torch.Tensor, mu: torch.Tensor, sigma: torch.T
 
 def train(model: nn.Module, device: torch.device, train_loader: DataLoader, optimizer: optim.Optimizer, epoch: int, loss_fn: nn.Module, pi_monitor: SigmaPI, 
           step_metrics: Dict[str, List[Tuple[int, float]]], epoch_metrics: Dict[str, List[Tuple[int, float]]], global_step: int, accumulation_steps: int, 
-          use_pilr: bool = False, initial_surprise_ema: Optional[float] = None, sigma_threshold: float = 1.0, pilr_mode: str = 'lr_scheduler') -> Tuple[int, List[Tuple[int, float]], List[Tuple[int, str]]] | int:
+          use_pilr: bool = False, initial_surprise_ema: Optional[float] = None, sigma_threshold: float = 1.0, pilr_mode: str = 'lr_scheduler') -> Tuple[int, List[Tuple[int, float]], List[Tuple[int, str]], List[float]] | int:
     model.train()
     optimizer.zero_grad()
 
@@ -131,16 +131,20 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
         summary_str += f", Avg LR-Mod: {avg_metrics['lr_mod']:.4f}"
     print(summary_str)
     
-    if use_pilr and pilr_mode == 'gate':
-        consolidate_count = len(epoch_summary['consolidate'])
-        ignore_count = len(epoch_summary['ignore'])
-        reject_count = len(epoch_summary['reject'])
-        total_decisions = consolidate_count + ignore_count + reject_count
-        if total_decisions > 0:
-            print(f"Decision Stats: Consolidate: {100*consolidate_count/total_decisions:.1f}%, Ignore: {100*ignore_count/total_decisions:.1f}%, Reject: {100*reject_count/total_decisions:.1f}%")
-        return global_step, epoch_summary['surprise_values'], epoch_summary['decisions']
-    
-    return global_step
+    if use_pilr:
+        if pilr_mode == 'gate':
+            consolidate_count = len(epoch_summary['consolidate'])
+            ignore_count = len(epoch_summary['ignore'])
+            reject_count = len(epoch_summary['reject'])
+            total_decisions = consolidate_count + ignore_count + reject_count
+            if total_decisions > 0:
+                print(f"Decision Stats: Consolidate: {100*consolidate_count/total_decisions:.1f}%, Ignore: {100*ignore_count/total_decisions:.1f}%, Reject: {100*reject_count/total_decisions:.1f}%")
+            return global_step, epoch_summary['surprise_values'], epoch_summary['decisions'], []
+        elif pilr_mode == 'lr_scheduler':
+            # For lr_scheduler, we return the lr_mod values instead of decisions
+            return global_step, epoch_summary['surprise_values'], [], epoch_summary['lr_mod']
+
+    return global_step, [], [], []
 
 def validate(model: nn.Module, device: torch.device, val_loader: DataLoader, loss_fn: nn.Module, pi_monitor: SigmaPI, dataset_name: str = "Validation") -> Tuple[float, float, float, float, float]:
     model.eval()

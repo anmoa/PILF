@@ -3,7 +3,7 @@
 > "Don't just train your model, understand its mind."
 
 <p align="center">
-  <a href="./README.md">English</a> | <a href="README_ZH.md">中文</a>
+  <a href="./README.md">English</a> | <a href="README_ZH.md">中文</a> | <a href="zoo.md">Model Zoo (EN)</a> | <a href="zoo_zh.md">模型动物园 (ZH)</a>
 </p>
 
 ---
@@ -158,27 +158,7 @@ graph TD
 - **Gaussian** solves the problem of **Space**: It defines **how knowledge is organized and accessed**. It creates a geometry of thought, giving concepts position, relationships, and distance, making routing smooth, probabilistic, and robust.
 - **Generative** solves the problem of **Time**: It defines **how knowledge is maintained and evolved**. It frees the system from reliance on external data storage, enabling internal memory consolidation and creative self-replay.
 
-## 3. Model Zoo and Experiments
-
-Our test suite is now built around a lightweight (~1M parameters) Vision Transformer architecture to facilitate rapid experimentation with cognitive learning principles. We compared three main variants on the CIFAR-10 dataset, using SVHN as an out-of-distribution (OOD) validation set.
-
-The goal is to observe the performance of different learning strategies under resource constraints, thereby more clearly demonstrating the advantages of mechanisms like PILR-S (Predictive Integrity Learning Rate Scheduler).
-
-| **Baseline ViT** | **4x1 MoE-ViT** | **16x4 MoE-ViT** | **16x4 PILR-S-MoE-ViT with 3σ Learning** |
-| :--:| :--:| :--:| :--:|
-| ~0.81M | ~1.21M | ~1.23M | ~1.23M |
-| <img src="output/ViT/img/legacy_img/20250626-BASE_ViT-Params_0.81M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-MOE_4x1_ViT-Params_1.21M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-MOE_16x4_ViT-Params_1.23M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-GBP_MOE_ViT-Params_1.23M.png" style="max-width:200px;"> |
-
-### MNIST Spaced Rehearsal Experiments
-
-We also conducted spaced rehearsal experiments on the MNIST and FashionMNIST datasets to further explore continuous learning capabilities.
-
-| **8x2 Full (FashionMNIST -> MNIST)** | **8x2 Pre-trained + 8x2 PILR-S Spaced Rehearsal (FashionMNIST -> MNIST)** | **8x2 PILR-S Full (FashionMNIST -> MNIST) (1.2σ)** |
-| :--:| :--:| :--:|
-| ~0.26M | ~0.26M | ~0.26M |
-| <img src="output/ViT/img/20250627-tiny-moe-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-2-mnist-mnist-rehearsal.png" style="max-width:200px;"> |
-
-## 4. Installation and Usage
+## 3. Installation and Usage
 
 This project relies on the `sigma-pi` package for core computations. To reproduce experiments and use the full testing framework, you must first clone this repository.
 
@@ -202,9 +182,9 @@ pip install -e .[dev]
 
 The testing framework is modular and configuration-driven.
 
-### 4.1. Configure Your Experiment
+### 3.1. Configure Your Experiment
 
-Create or modify a configuration file in the `test/configs/` directory. For example, `test/configs/base_vit.py`:
+Create or modify a configuration file in the `configs/` directory. For example, `configs/base_vit.py`:
 
 ```python
 # test/configs/base_vit.py
@@ -225,25 +205,25 @@ train_config = {
 }
 ```
 
-### 4.2. Run Experiments
+### 3.2. Run Experiments
 
-Launch experiments from the root directory using the `test/run_experiment.py` script:
+Launch experiments from the root directory using the `run_experiment.py` script:
 
 ```bash
-python test/run_experiment.py --config test/configs/base_vit.py
+python run_experiment.py --config configs/base_vit.py
 ```
 
 To run other variants, simply point to their respective configuration files:
 
 ```bash
 # Run MoE-ViT experiment
-python test/run_experiment.py --config test/configs/moe_vit.py
+python run_experiment.py --config configs/moe_vit.py
 
 # Run PILR-S-MoE-ViT experiment
-python test/run_experiment.py --config test/configs/gbp_moe_vit.py
+python run_experiment.py --config configs/gbp_moe_vit.py
 ```
 
-## 5. Theoretical Contributions
+## 4. Theoretical Contributions
 
 - **Transforming Hyperparameters into Strategies**: Transforms learning rates and model capacities from "static hyperparameters" set by developers into "dynamic strategies" autonomously adjusted by the model based on data value.
 - **Unifying "Learning" and "Forgetting"**: By linking the learning rate to `Surprise`, PILF provides a unified framework to handle learning, ignoring (low `Surprise` leads to low `lr`), and rejecting (high `Surprise` leads to low `lr`), thereby intrinsically mitigating catastrophic forgetting.

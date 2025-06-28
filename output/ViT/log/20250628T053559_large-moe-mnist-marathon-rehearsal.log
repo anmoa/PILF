@@ -1,0 +1,15 @@
+Logging output to: output/ViT/log\20250628T053559_large-moe-mnist-marathon-rehearsal.log
+Model: large-moe-mnist-marathon-rehearsal
+Total Trainable Parameters: 0.46M
+Files already downloaded and verified
+Files already downloaded and verified
+Using downloaded and verified file: temp_data/SVHN\train_32x32.mat
+Using downloaded and verified file: temp_data/SVHN\test_32x32.mat
+
+==================== MARATHON CYCLE 1/5 ====================
+
+--- Training on CIFAR10 for 5 epoch(s) ---
+Train Epoch 1 Summary: Avg loss: 1.9327, Avg Accuracy: 27.98%, Avg PI: 0.3264, Avg Surprise: 1.6383, Avg Tau: 1.9365
+Train Epoch 2 Summary: Avg loss: 1.6986, Avg Accuracy: 37.24%, Avg PI: 0.2902, Avg Surprise: 1.5627, Avg Tau: 1.7363
+Train Epoch 3 Summary: Avg loss: 1.5803, Avg Accuracy: 42.02%, Avg PI: 0.2332, Avg Surprise: 1.9937, Avg Tau: 1.6151
+Train Epoch 4 Summary: Avg loss: 1.4792, Avg Accuracy: 45.98%, Avg PI: 0.2378, Avg Surprise: 1.9315, Avg Tau: 1.5105

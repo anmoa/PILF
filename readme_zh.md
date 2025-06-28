@@ -2,9 +2,13 @@
 
 > 不仅要训练你的模型，更要理解它的心智。
 
-核心理念: 一个旨在将固定的超参数（如学习率、模型容量）转变为由数据内在“惊奇度”(`Surprise`)实时驱动的动态策略的认知学习框架。其本质是一种自适应超参数调度算法，它让模型根据学习内容的价值，自主决定“学多少”和“用多大容量学”。该框架源于 IPWT (Integrated Predictive Workspace Theory) 理论，相关论文信息请见 <https://github.com/dmf-archive/IPWT>
+<p align="center">
+  <a href="./README.md">English</a> | <a href="README_ZH.md">中文</a> | <a href="zoo.md">Model Zoo (EN)</a> | <a href="zoo_zh.md">模型动物园 (ZH)</a>
+</p>
 
 ---
+
+核心理念: 一个旨在将固定的超参数（如学习率、模型容量）转变为由数据内在“惊奇度”(`Surprise`)实时驱动的动态策略的认知学习框架。其本质是一种自适应超参数调度算法，它让模型根据学习内容的价值，自主决定“学多少”和“用多大容量学”。该框架源于 IPWT (Integrated Predictive Workspace Theory) 理论，相关论文信息请见 <https://github.com/dmf-archive/IPWT>
 
 ## 1. 设计哲学：从“固定规则”到“动态策略”
 
@@ -152,27 +156,7 @@ graph TD
 - **Gaussian (高斯)** 解决了 **空间 (Space)** 的问题：它定义了知识**如何被组织和访问**。它创造了一个思想的几何学，让概念有了位置、关系和距离，让路由变得平滑、概率化和鲁棒。
 - **Generative (生成式)** 解决了 **时间 (Time)** 的问题：它定义了知识**如何被维持和演化**。它让系统摆脱了对外部数据存储的依赖，实现了记忆的内部巩固和创造性的自我重放。
 
-## 3. 模型动物园与实验
-
-我们的测试套件现在围绕一个轻量级（约 1M 参数）的 Vision Transformer 架构构建，以便于快速进行认知学习原理的实验。我们在 CIFAR-10 数据集上比较了三种主要变体，并使用 SVHN 作为分布外（OOD）验证集。
-
-目标是观察不同学习策略在资源受限下的表现，从而更清晰地展示 PILR-S（Predictive Integrity Learning Rate Scheduler）等机制的优势。
-
-|   **基线 ViT**    |   **4x1 MoE-ViT**    |   **16x4 MoE-ViT**    | **带有 3σ 学习的 16x4 PILR-S-MoE-ViT**       |
-| :-------: | :----------: | :: | - |
-|      ~0.81M       |~1.21M|~1.23M | ~1.23M       |
-| <img src="output/ViT/img/legacy_img/20250626-BASE_ViT-Params_0.81M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-MOE_4x1_ViT-Params_1.21M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-MOE_16x4_ViT-Params_1.23M.png" style="max-width:200px;"> | <img src="output/ViT/img/legacy_img/20250626-GBP_MOE_ViT-Params_1.23M.png" style="max-width:200px;"> |
-
-### MNIST 间隔复习实验
-
-我们还在 MNIST 和 FashionMNIST 数据集上进行了间隔复习实验，以进一步探索持续学习的能力。
-
-|      **8x2 全程 (FashionMNIST -> MNIST)**       |  **8x2 预训练 + 8x2 PILR-S 间隔复习 (FashionMNIST -> MNIST)**   |**8x2 PILR-S 全程 (FashionMNIST -> MNIST) (1.2σ)** |
-| :-----: | :-----: | :-------: |
-|     ~0.26M      |     ~0.26M      |      ~0.26M       |
-| <img src="output/ViT/img/20250627-tiny-moe-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-2-mnist-mnist-rehearsal.png" style="max-width:200px;"> |
-
-## 4. 安装与使用
+## 3. 安装与使用
 
 本项目依赖 `sigma-pi` 包进行核心计算。要复现实验并使用完整的测试框架，您必须首先克隆本仓库。
 
@@ -196,9 +180,9 @@ pip install -e .[dev]
 
 测试框架是模块化和配置驱动的。
 
-### 4.1. 配置您的实验
+### 3.1. 配置您的实验
 
-在 `test/configs/` 目录中创建或修改一个配置文件。例如, `test/configs/base_vit.py`:
+在 `configs/` 目录中创建或修改一个配置文件。例如, `configs/base_vit.py`:
 
 ```python
 # test/configs/base_vit.py
@@ -219,9 +203,9 @@ train_config = {
 }
 ```
 
-### 4.2. 运行实验
+### 3.2. 运行实验
 
-从根目录使用 `test/run_experiment.py` 脚本启动实验：
+从根目录使用 `run_experiment.py` 脚本启动实验：
 
 ```bash
 python test/run_experiment.py --config test/configs/base_vit.py
@@ -231,13 +215,13 @@ python test/run_experiment.py --config test/configs/base_vit.py
 
 ```bash
 # 运行 MoE-ViT 实验
-python test/run_experiment.py --config test/configs/moe_vit.py
+python run_experiment.py --config configs/moe_vit.py
 
 # 运行 PILR-S-MoE-ViT 实验
-python test/run_experiment.py --config test/configs/gbp_moe_vit.py
+python run_experiment.py --config configs/gbp_moe_vit.py
 ```
 
-## 5. 理论贡献
+## 4. 理论贡献
 
 - **变超参数为策略**: 将学习率和模型容量从开发者设定的“静态超参数”转变为模型根据数据价值自主调节的“动态策略”。
 - **统一“学习”与“遗忘”**: 通过将学习率与 `Surprise` 挂钩，PILF 提供了一个统一的框架来处理学习、忽略（低`Surprise`导致低`lr`）和拒绝（高`Surprise`导致低`lr`），从而内在地缓解了灾难性遗忘。
