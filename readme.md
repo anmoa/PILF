@@ -3,7 +3,7 @@
 > "Don't just train your model, understand its mind."
 
 <p align="center">
-  <a href="./README.md">English</a> | <a href="README_ZH.md">中文</a> | <a href="zoo.md">Model Zoo (EN)</a> | <a href="zoo_zh.md">模型动物园 (ZH)</a>
+  <a href="./readme.md">English</a> | <a href="readme_ZH.md">中文</a> | <a href="zoo.md">Model Zoo (EN)</a> | <a href="zoo_zh.md">模型动物园 (ZH)</a>
 </p>
 
 ---
@@ -30,7 +30,7 @@ The evolution of PILF is divided into five main stages, each building upon the p
 In traditional training, selective weight updates are performed through a gating mechanism to mitigate catastrophic forgetting. The execution of `optimizer.step()` is controlled by a binary gating signal based on the `Surprise` metric. As a precursor to PILF, it validated the effectiveness of selective learning based on PI, laying the foundation for subsequent dynamic learning rate and capacity scheduling.
 
 ```mermaid
-graph TD
+graph LR
     Input --> Model
     Model --> Surprise["Surprise Calculation"]
     Surprise --> Gate["Binary Gate (based on Surprise)"]
@@ -86,7 +86,7 @@ sequenceDiagram
 **Advantages:** Introduces data-driven learning rates in the MoE architecture, while improving training efficiency through selective updates and laying the foundation for subsequent dynamic capacity allocation.
 
 ```mermaid
-graph TD
+graph LR
     Input --> InitialSurprise["Initial Surprise Assessment"]
     
     subgraph DynamicPolicy [Surprise-Driven Dynamic Policy]
@@ -121,7 +121,7 @@ graph TD
 **Advantages:** Maximizes computational efficiency and model capacity scalability, truly achieving on-demand allocation of computational resources.
 
 ```mermaid
-graph TD
+graph LR
     Input --> InitialSurprise["Initial Surprise"]
     InitialSurprise --> k_Value["k = g(Surprise)"]
     InitialSurprise --> lr_mod_Value["lr_mod = f(Surprise)"]

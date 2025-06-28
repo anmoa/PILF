@@ -3,7 +3,7 @@
 > 不仅要训练你的模型，更要理解它的心智。
 
 <p align="center">
-  <a href="./README.md">English</a> | <a href="README_ZH.md">中文</a> | <a href="zoo.md">Model Zoo (EN)</a> | <a href="zoo_zh.md">模型动物园 (ZH)</a>
+  <a href="./readme.md">English</a> | <a href="readme_ZH.md">中文</a> | <a href="zoo.md">Model Zoo (EN)</a> | <a href="zoo_zh.md">模型动物园 (ZH)</a>
 </p>
 
 ---
@@ -30,7 +30,7 @@ PILF 的演进分为五个主要阶段，每个阶段都建立在前一阶段的
 在传统训练中，通过门控机制选择性地更新权重，以缓解灾难性遗忘。`optimizer.step()` 的执行由一个二元门控信号控制，该信号基于`Surprise`指标。作为 PILF 的前身，验证了基于 PI 进行选择性学习的有效性，为后续的动态学习率和容量调度奠定了基础。
 
 ```mermaid
-graph TD
+graph LR
     Input --> Model
     Model --> Surprise["Surprise Calculation"]
     Surprise --> Gate["Binary Gate (based on Surprise)"]
@@ -84,7 +84,7 @@ sequenceDiagram
 **核心机制:** `effective_lr = base_lr * f(Surprise)` 应用于 MoE 架构。门控网络根据静态 Top-K 值将任务路由到专家，且仅更新被激活的专家权重。
 
 ```mermaid
-graph TD
+graph LR
     Input --> InitialSurprise["Initial Surprise Assessment"]
 
     subgraph DynamicPolicy [Surprise-Driven Dynamic Policy]
@@ -119,7 +119,7 @@ SetLR --> OptimizerStep["Optimizer.step()"]
 **优势:** 实现了计算效率和模型容量扩展性的最大化，真正实现了计算资源按需分配。
 
 ```mermaid
-graph TD
+graph LR
     Input --> InitialSurprise["Initial Surprise"]
     InitialSurprise --> k_Value["k = g(Surprise)"]
     InitialSurprise --> lr_mod_Value["lr_mod = f(Surprise)"]

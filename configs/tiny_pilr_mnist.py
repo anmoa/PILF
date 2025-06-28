@@ -15,3 +15,10 @@ model_config = {
     'num_experts': 8,    # Number of experts in MoE
     'top_k': 2,           # Top-K routing
 }
+
+# Training function specific keyword arguments
+train_fn_kwargs = {
+    'pilr_mode': 'lr_scheduler',
+    'sigma_threshold': 1.2,
+    'initial_surprise_ema': 0.0
+}

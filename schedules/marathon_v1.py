@@ -22,7 +22,7 @@ schedule_config = {
         'accumulation_steps': 1,
         'learning_rate': 1e-3,
         'weight_decay': 1e-4,
-        'output_dir': 'output/ViT/',
+        'output_dir': 'output/ViT/marathon-v1',
     },
 
     # PI Monitor parameters

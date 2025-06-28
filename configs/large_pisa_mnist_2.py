@@ -1,6 +1,6 @@
-# Large PILR-S ViT Configuration with Dual PISA for MNIST
+# Large PILR-S ViT Configuration with Dual PISA-2 for MNIST
 # This model uses a PISA adaptor to dynamically adjust sigma for the
-# gating network and the expert networks independently.
+# gating network and the expert networks independently, with adjusted reaction speed.
 
 model_config = {
     'model_type': 'pilr_moe',
@@ -19,9 +19,9 @@ model_config = {
     # Keyword arguments for the PisaUpdate strategy.
     # The presence of 'gating_' and 'expert_' prefixes triggers dual mode.
     'train_fn_kwargs': {
-        'expert_initial_var': 0.8,
-        'expert_beta': 0.15,
+        'expert_initial_var': 1.0,
+        'expert_beta': 0.1,
         'gating_initial_var': 0.5,
-        'gating_beta': 0.15,
+        'gating_beta': 0.1,
     }
 }

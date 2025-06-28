@@ -15,3 +15,10 @@ model_config = {
     'num_experts': 16,    # Doubled from 8
     'top_k': 4,           # Doubled from 2
 }
+
+# Training function specific keyword arguments
+train_fn_kwargs = {
+    'pilr_mode': 'lr_scheduler',
+    'sigma_threshold': 1.2,
+    'initial_surprise_ema': 0.0
+}

@@ -1,0 +1,214 @@
+Logging output to: output/ViT/marathon-v2\log\20250628T090017-marathon_v2-large_pisa_mnist.log
+Model Suffix: -marathon_v2
+Total Trainable Parameters: 0.46M
+Using parameter groups for optimizer.
+Files already downloaded and verified
+Files already downloaded and verified
+Using downloaded and verified file: temp_data/SVHN\train_32x32.mat
+Using downloaded and verified file: temp_data/SVHN\test_32x32.mat
+
+==================== CYCLE 1/4 ====================
+
+--- Training on CIFAR10 for 4 epoch(s) ---
+Train Epoch 1 Summary: Avg loss: 1.9920, Avg Accuracy: 25.83%, Avg PI: 0.5620, Avg Surprise: 0.1529, Avg Tau: 1.9877, Avg Gating LR-Mod: 0.9990, Avg Expert LR-Mod: 0.9985
+Train Epoch 2 Summary: Avg loss: 1.7805, Avg Accuracy: 33.92%, Avg PI: 0.5436, Avg Surprise: 0.2366, Avg Tau: 1.8095, Avg Gating LR-Mod: 0.9419, Avg Expert LR-Mod: 0.9798
+Train Epoch 3 Summary: Avg loss: 1.6550, Avg Accuracy: 38.93%, Avg PI: 0.5212, Avg Surprise: 0.3269, Avg Tau: 1.6921, Avg Gating LR-Mod: 0.8390, Avg Expert LR-Mod: 0.9034
+Train Epoch 4 Summary: Avg loss: 1.5584, Avg Accuracy: 43.18%, Avg PI: 0.5028, Avg Surprise: 0.3950, Avg Tau: 1.5874, Avg Gating LR-Mod: 0.7994, Avg Expert LR-Mod: 0.7225
+
+--- Validating at global step: 196 ---
+CIFAR10 Validation set: Avg loss: 1.5046, Accuracy: 46.44%, Avg PI: 0.1299, Avg Surprise: 3.0813, Avg Tau: 1.4780
+MNIST Validation set: Avg loss: 3.6186, Accuracy: 9.58%, Avg PI: 0.0029, Avg Surprise: 9.4840, Avg Tau: 1.6136
+FashionMNIST Validation set: Avg loss: 3.5023, Accuracy: 8.50%, Avg PI: 0.0069, Avg Surprise: 7.9401, Avg Tau: 1.7178
+SVHN Validation set: Avg loss: 3.5079, Accuracy: 10.08%, Avg PI: 0.0107, Avg Surprise: 6.9654, Avg Tau: 1.6054
+
+--- Training on MNIST for 2 epoch(s) ---
+Train Epoch 5 Summary: Avg loss: 2.3107, Avg Accuracy: 14.81%, Avg PI: 0.5419, Avg Surprise: 0.2391, Avg Tau: 2.2402, Avg Gating LR-Mod: 0.8542, Avg Expert LR-Mod: 0.8374
+Train Epoch 6 Summary: Avg loss: 1.5890, Avg Accuracy: 42.49%, Avg PI: 0.5041, Avg Surprise: 0.4383, Avg Tau: 1.6825, Avg Gating LR-Mod: 0.7063, Avg Expert LR-Mod: 0.6866
+
+--- Validating at global step: 314 ---
+CIFAR10 Validation set: Avg loss: 3.2292, Accuracy: 14.64%, Avg PI: 0.0112, Avg Surprise: 6.8333, Avg Tau: 1.4758
+MNIST Validation set: Avg loss: 0.9487, Accuracy: 67.27%, Avg PI: 0.1294, Avg Surprise: 3.4177, Avg Tau: 1.1905
+FashionMNIST Validation set: Avg loss: 3.0973, Accuracy: 10.88%, Avg PI: 0.0180, Avg Surprise: 6.0107, Avg Tau: 1.5117
+SVHN Validation set: Avg loss: 3.7072, Accuracy: 11.03%, Avg PI: 0.0029, Avg Surprise: 8.8243, Avg Tau: 1.2571
+
+--- Training on FashionMNIST for 3 epoch(s) ---
+Train Epoch 7 Summary: Avg loss: 1.3662, Avg Accuracy: 51.09%, Avg PI: 0.4784, Avg Surprise: 0.5807, Avg Tau: 1.4256, Avg Gating LR-Mod: 0.7660, Avg Expert LR-Mod: 0.7809
+Train Epoch 8 Summary: Avg loss: 0.7234, Avg Accuracy: 72.88%, Avg PI: 0.4937, Avg Surprise: 0.5228, Avg Tau: 0.8062, Avg Gating LR-Mod: 0.8713, Avg Expert LR-Mod: 0.7951
+Train Epoch 9 Summary: Avg loss: 0.5716, Avg Accuracy: 79.34%, Avg PI: 0.5141, Avg Surprise: 0.4202, Avg Tau: 0.6262, Avg Gating LR-Mod: 0.8326, Avg Expert LR-Mod: 0.7752
+
+--- Validating at global step: 491 ---
+CIFAR10 Validation set: Avg loss: 4.1881, Accuracy: 14.86%, Avg PI: 0.0002, Avg Surprise: 12.4701, Avg Tau: 0.9263
+MNIST Validation set: Avg loss: 4.7213, Accuracy: 11.52%, Avg PI: 0.0000, Avg Surprise: 72.2494, Avg Tau: 0.6155
+FashionMNIST Validation set: Avg loss: 0.4986, Accuracy: 82.08%, Avg PI: 0.2041, Avg Surprise: 2.2566, Avg Tau: 0.5266
+SVHN Validation set: Avg loss: 4.6460, Accuracy: 8.94%, Avg PI: 0.0000, Avg Surprise: 17.8873, Avg Tau: 0.9186
+
+--- Training on SVHN for 5 epoch(s) ---
+Train Epoch 10 Summary: Avg loss: 2.3561, Avg Accuracy: 18.15%, Avg PI: 0.5430, Avg Surprise: 0.1916, Avg Tau: 2.1410, Avg Gating LR-Mod: 0.9364, Avg Expert LR-Mod: 0.9104
+Train Epoch 11 Summary: Avg loss: 2.2322, Avg Accuracy: 19.94%, Avg PI: 0.5799, Avg Surprise: 0.0847, Avg Tau: 2.2194, Avg Gating LR-Mod: 0.8433, Avg Expert LR-Mod: 0.9281
+Train Epoch 12 Summary: Avg loss: 2.2068, Avg Accuracy: 21.75%, Avg PI: 0.5662, Avg Surprise: 0.1351, Avg Tau: 2.1994, Avg Gating LR-Mod: 0.7175, Avg Expert LR-Mod: 0.7576
+Train Epoch 13 Summary: Avg loss: 2.1400, Avg Accuracy: 24.63%, Avg PI: 0.5365, Avg Surprise: 0.2465, Avg Tau: 2.1369, Avg Gating LR-Mod: 0.6537, Avg Expert LR-Mod: 0.6498
+Train Epoch 14 Summary: Avg loss: 2.0330, Avg Accuracy: 28.23%, Avg PI: 0.5387, Avg Surprise: 0.2379, Avg Tau: 2.0300, Avg Gating LR-Mod: 0.7969, Avg Expert LR-Mod: 0.7532
+
+--- Validating at global step: 851 ---
+CIFAR10 Validation set: Avg loss: 2.7733, Accuracy: 9.07%, Avg PI: 0.0935, Avg Surprise: 3.3550, Avg Tau: 1.9943
+MNIST Validation set: Avg loss: 2.3836, Accuracy: 16.68%, Avg PI: 0.0108, Avg Surprise: 7.9191, Avg Tau: 2.0023
+FashionMNIST Validation set: Avg loss: 2.2862, Accuracy: 17.67%, Avg PI: 0.1130, Avg Surprise: 3.2214, Avg Tau: 1.9949
+SVHN Validation set: Avg loss: 1.9144, Accuracy: 33.49%, Avg PI: 0.1191, Avg Surprise: 3.3268, Avg Tau: 1.9877
+
+Checkpoint for cycle 1 saved.
+
+==================== CYCLE 2/4 ====================
+
+--- Training on CIFAR10 for 4 epoch(s) ---
+Train Epoch 15 Summary: Avg loss: 2.1372, Avg Accuracy: 21.03%, Avg PI: 0.5311, Avg Surprise: 0.2647, Avg Tau: 2.0999, Avg Gating LR-Mod: 0.7738, Avg Expert LR-Mod: 0.8837
+Train Epoch 16 Summary: Avg loss: 1.7636, Avg Accuracy: 34.48%, Avg PI: 0.5230, Avg Surprise: 0.3081, Avg Tau: 1.7816, Avg Gating LR-Mod: 0.7833, Avg Expert LR-Mod: 0.8583
+Train Epoch 17 Summary: Avg loss: 1.6050, Avg Accuracy: 41.24%, Avg PI: 0.5002, Avg Surprise: 0.3944, Avg Tau: 1.6168, Avg Gating LR-Mod: 0.7398, Avg Expert LR-Mod: 0.7406
+Train Epoch 18 Summary: Avg loss: 1.5201, Avg Accuracy: 44.35%, Avg PI: 0.4980, Avg Surprise: 0.4073, Avg Tau: 1.5377, Avg Gating LR-Mod: 0.7166, Avg Expert LR-Mod: 0.7577
+
+--- Validating at global step: 1047 ---
+CIFAR10 Validation set: Avg loss: 1.4178, Accuracy: 49.30%, Avg PI: 0.2010, Avg Surprise: 2.2066, Avg Tau: 1.3907
+MNIST Validation set: Avg loss: 3.8296, Accuracy: 9.24%, Avg PI: 0.0025, Avg Surprise: 9.7158, Avg Tau: 1.6202
+FashionMNIST Validation set: Avg loss: 3.3756, Accuracy: 10.25%, Avg PI: 0.0017, Avg Surprise: 10.7059, Avg Tau: 1.6232
+SVHN Validation set: Avg loss: 3.5956, Accuracy: 10.03%, Avg PI: 0.0142, Avg Surprise: 6.2372, Avg Tau: 1.5640
+
+--- Training on MNIST for 2 epoch(s) ---
+Train Epoch 19 Summary: Avg loss: 1.6788, Avg Accuracy: 40.51%, Avg PI: 0.4913, Avg Surprise: 0.5078, Avg Tau: 1.6949, Avg Gating LR-Mod: 0.8595, Avg Expert LR-Mod: 0.8564
+Train Epoch 20 Summary: Avg loss: 0.6901, Avg Accuracy: 76.01%, Avg PI: 0.4858, Avg Surprise: 0.5921, Avg Tau: 0.8009, Avg Gating LR-Mod: 0.7180, Avg Expert LR-Mod: 0.7840
+
+--- Validating at global step: 1165 ---
+CIFAR10 Validation set: Avg loss: 3.8300, Accuracy: 14.69%, Avg PI: 0.0029, Avg Surprise: 7.9237, Avg Tau: 1.0158
+MNIST Validation set: Avg loss: 0.4084, Accuracy: 86.81%, Avg PI: 0.2739, Avg Surprise: 1.8526, Avg Tau: 0.4947
+FashionMNIST Validation set: Avg loss: 3.3274, Accuracy: 13.76%, Avg PI: 0.0016, Avg Surprise: 10.0133, Avg Tau: 1.1300
+SVHN Validation set: Avg loss: 3.8743, Accuracy: 13.48%, Avg PI: 0.0008, Avg Surprise: 10.1043, Avg Tau: 0.9140
+
+--- Training on FashionMNIST for 3 epoch(s) ---
+Train Epoch 21 Summary: Avg loss: 0.9839, Avg Accuracy: 65.87%, Avg PI: 0.4685, Avg Surprise: 0.6440, Avg Tau: 1.0023, Avg Gating LR-Mod: 0.8486, Avg Expert LR-Mod: 0.8507
+Train Epoch 22 Summary: Avg loss: 0.5300, Avg Accuracy: 80.95%, Avg PI: 0.5304, Avg Surprise: 0.3504, Avg Tau: 0.5770, Avg Gating LR-Mod: 0.9047, Avg Expert LR-Mod: 0.8462
+Train Epoch 23 Summary: Avg loss: 0.4714, Avg Accuracy: 82.98%, Avg PI: 0.5320, Avg Surprise: 0.3285, Avg Tau: 0.5040, Avg Gating LR-Mod: 0.7563, Avg Expert LR-Mod: 0.7448
+
+--- Validating at global step: 1342 ---
+CIFAR10 Validation set: Avg loss: 4.1827, Accuracy: 14.46%, Avg PI: 0.0009, Avg Surprise: 9.8826, Avg Tau: 0.9863
+MNIST Validation set: Avg loss: 4.8287, Accuracy: 14.13%, Avg PI: 0.0000, Avg Surprise: 56.3390, Avg Tau: 0.5445
+FashionMNIST Validation set: Avg loss: 0.4594, Accuracy: 83.65%, Avg PI: 0.2258, Avg Surprise: 1.9125, Avg Tau: 0.4278
+SVHN Validation set: Avg loss: 4.3216, Accuracy: 13.68%, Avg PI: 0.0004, Avg Surprise: 11.4179, Avg Tau: 0.9776
+
+--- Training on SVHN for 5 epoch(s) ---
+Train Epoch 24 Summary: Avg loss: 2.3508, Avg Accuracy: 19.20%, Avg PI: 0.5261, Avg Surprise: 0.2403, Avg Tau: 2.1270, Avg Gating LR-Mod: 0.8896, Avg Expert LR-Mod: 0.8808
+Train Epoch 25 Summary: Avg loss: 2.1630, Avg Accuracy: 23.79%, Avg PI: 0.5473, Avg Surprise: 0.2061, Avg Tau: 2.1573, Avg Gating LR-Mod: 0.7422, Avg Expert LR-Mod: 0.7916
+Train Epoch 26 Summary: Avg loss: 2.0370, Avg Accuracy: 28.14%, Avg PI: 0.5287, Avg Surprise: 0.2776, Avg Tau: 2.0355, Avg Gating LR-Mod: 0.7108, Avg Expert LR-Mod: 0.6747
+Train Epoch 27 Summary: Avg loss: 1.9582, Avg Accuracy: 30.88%, Avg PI: 0.5108, Avg Surprise: 0.3462, Avg Tau: 1.9530, Avg Gating LR-Mod: 0.7623, Avg Expert LR-Mod: 0.7358
+Train Epoch 28 Summary: Avg loss: 1.8831, Avg Accuracy: 33.83%, Avg PI: 0.5249, Avg Surprise: 0.2915, Avg Tau: 1.8848, Avg Gating LR-Mod: 0.7675, Avg Expert LR-Mod: 0.7193
+
+--- Validating at global step: 1702 ---
+CIFAR10 Validation set: Avg loss: 2.9399, Accuracy: 8.92%, Avg PI: 0.0473, Avg Surprise: 4.5420, Avg Tau: 1.8743
+MNIST Validation set: Avg loss: 2.2954, Accuracy: 20.46%, Avg PI: 0.0124, Avg Surprise: 7.7518, Avg Tau: 1.8067
+FashionMNIST Validation set: Avg loss: 2.4266, Accuracy: 18.48%, Avg PI: 0.0211, Avg Surprise: 6.4083, Avg Tau: 1.8276
+SVHN Validation set: Avg loss: 1.7017, Accuracy: 40.75%, Avg PI: 0.1611, Avg Surprise: 2.7102, Avg Tau: 1.7769
+
+Checkpoint for cycle 2 saved.
+
+==================== CYCLE 3/4 ====================
+
+--- Training on CIFAR10 for 4 epoch(s) ---
+Train Epoch 29 Summary: Avg loss: 2.0345, Avg Accuracy: 26.56%, Avg PI: 0.5156, Avg Surprise: 0.3252, Avg Tau: 1.9933, Avg Gating LR-Mod: 0.8041, Avg Expert LR-Mod: 0.8359
+Train Epoch 30 Summary: Avg loss: 1.6082, Avg Accuracy: 41.06%, Avg PI: 0.5243, Avg Surprise: 0.3001, Avg Tau: 1.6214, Avg Gating LR-Mod: 0.7789, Avg Expert LR-Mod: 0.8916
+Train Epoch 31 Summary: Avg loss: 1.5000, Avg Accuracy: 45.24%, Avg PI: 0.5078, Avg Surprise: 0.3662, Avg Tau: 1.5145, Avg Gating LR-Mod: 0.6509, Avg Expert LR-Mod: 0.6992
+Train Epoch 32 Summary: Avg loss: 1.4447, Avg Accuracy: 47.38%, Avg PI: 0.5041, Avg Surprise: 0.3809, Avg Tau: 1.4584, Avg Gating LR-Mod: 0.7236, Avg Expert LR-Mod: 0.7330
+
+--- Validating at global step: 1898 ---
+CIFAR10 Validation set: Avg loss: 1.3256, Accuracy: 52.41%, Avg PI: 0.2706, Avg Surprise: 1.6017, Avg Tau: 1.2982
+MNIST Validation set: Avg loss: 3.1908, Accuracy: 10.52%, Avg PI: 0.0026, Avg Surprise: 10.2742, Avg Tau: 1.8245
+FashionMNIST Validation set: Avg loss: 3.2999, Accuracy: 9.45%, Avg PI: 0.0039, Avg Surprise: 9.1102, Avg Tau: 1.6633
+SVHN Validation set: Avg loss: 3.4664, Accuracy: 10.51%, Avg PI: 0.0112, Avg Surprise: 6.8725, Avg Tau: 1.6056
+
+--- Training on MNIST for 2 epoch(s) ---
+Train Epoch 33 Summary: Avg loss: 1.1482, Avg Accuracy: 60.41%, Avg PI: 0.4589, Avg Surprise: 0.6886, Avg Tau: 1.2220, Avg Gating LR-Mod: 0.7655, Avg Expert LR-Mod: 0.7925
+Train Epoch 34 Summary: Avg loss: 0.3890, Avg Accuracy: 87.67%, Avg PI: 0.5361, Avg Surprise: 0.4355, Avg Tau: 0.4766, Avg Gating LR-Mod: 0.8283, Avg Expert LR-Mod: 0.7742
+
+--- Validating at global step: 2016 ---
+CIFAR10 Validation set: Avg loss: 3.6375, Accuracy: 16.39%, Avg PI: 0.0023, Avg Surprise: 8.6964, Avg Tau: 1.0531
+MNIST Validation set: Avg loss: 0.2110, Accuracy: 93.43%, Avg PI: 0.4167, Avg Surprise: 1.0322, Avg Tau: 0.2787
+FashionMNIST Validation set: Avg loss: 3.5354, Accuracy: 16.40%, Avg PI: 0.0004, Avg Surprise: 11.6657, Avg Tau: 0.8849
+SVHN Validation set: Avg loss: 3.3319, Accuracy: 16.48%, Avg PI: 0.0023, Avg Surprise: 9.2101, Avg Tau: 1.1133
+
+--- Training on FashionMNIST for 3 epoch(s) ---
+Train Epoch 35 Summary: Avg loss: 0.8340, Avg Accuracy: 71.48%, Avg PI: 0.4756, Avg Surprise: 0.5965, Avg Tau: 0.8120, Avg Gating LR-Mod: 0.8928, Avg Expert LR-Mod: 0.9073
+Train Epoch 36 Summary: Avg loss: 0.4790, Avg Accuracy: 82.79%, Avg PI: 0.5227, Avg Surprise: 0.3570, Avg Tau: 0.5084, Avg Gating LR-Mod: 0.8889, Avg Expert LR-Mod: 0.8839
+Train Epoch 37 Summary: Avg loss: 0.4366, Avg Accuracy: 84.11%, Avg PI: 0.5270, Avg Surprise: 0.3387, Avg Tau: 0.4624, Avg Gating LR-Mod: 0.7702, Avg Expert LR-Mod: 0.7503
+
+--- Validating at global step: 2193 ---
+CIFAR10 Validation set: Avg loss: 4.1721, Accuracy: 15.25%, Avg PI: 0.0003, Avg Surprise: 11.2345, Avg Tau: 0.8721
+MNIST Validation set: Avg loss: 4.3502, Accuracy: 13.69%, Avg PI: 0.0000, Avg Surprise: 50.5971, Avg Tau: 0.7087
+FashionMNIST Validation set: Avg loss: 0.4205, Accuracy: 84.76%, Avg PI: 0.3161, Avg Surprise: 1.2296, Avg Tau: 0.3863
+SVHN Validation set: Avg loss: 4.1239, Accuracy: 12.79%, Avg PI: 0.0007, Avg Surprise: 10.6730, Avg Tau: 1.0174
+
+--- Training on SVHN for 5 epoch(s) ---
+Train Epoch 38 Summary: Avg loss: 2.2768, Avg Accuracy: 21.12%, Avg PI: 0.5172, Avg Surprise: 0.3190, Avg Tau: 2.1295, Avg Gating LR-Mod: 0.8925, Avg Expert LR-Mod: 0.8941
+Train Epoch 39 Summary: Avg loss: 2.0174, Avg Accuracy: 28.81%, Avg PI: 0.5369, Avg Surprise: 0.2499, Avg Tau: 2.0262, Avg Gating LR-Mod: 0.7999, Avg Expert LR-Mod: 0.8065
+Train Epoch 40 Summary: Avg loss: 1.8685, Avg Accuracy: 34.65%, Avg PI: 0.5119, Avg Surprise: 0.3444, Avg Tau: 1.8719, Avg Gating LR-Mod: 0.7813, Avg Expert LR-Mod: 0.7450
+Train Epoch 41 Summary: Avg loss: 1.7838, Avg Accuracy: 37.88%, Avg PI: 0.5057, Avg Surprise: 0.3680, Avg Tau: 1.7884, Avg Gating LR-Mod: 0.7378, Avg Expert LR-Mod: 0.7273
+Train Epoch 42 Summary: Avg loss: 1.7137, Avg Accuracy: 40.66%, Avg PI: 0.4929, Avg Surprise: 0.4205, Avg Tau: 1.7182, Avg Gating LR-Mod: 0.6984, Avg Expert LR-Mod: 0.6945
+
+--- Validating at global step: 2553 ---
+CIFAR10 Validation set: Avg loss: 3.0952, Accuracy: 9.45%, Avg PI: 0.0321, Avg Surprise: 5.0921, Avg Tau: 1.7222
+MNIST Validation set: Avg loss: 2.3621, Accuracy: 24.98%, Avg PI: 0.0044, Avg Surprise: 9.6529, Avg Tau: 1.5730
+FashionMNIST Validation set: Avg loss: 2.4997, Accuracy: 20.72%, Avg PI: 0.0088, Avg Surprise: 7.9602, Avg Tau: 1.6268
+SVHN Validation set: Avg loss: 1.4397, Accuracy: 50.69%, Avg PI: 0.2222, Avg Surprise: 2.0732, Avg Tau: 1.5150
+
+Checkpoint for cycle 3 saved.
+
+==================== CYCLE 4/4 ====================
+
+--- Training on CIFAR10 for 4 epoch(s) ---
+Train Epoch 43 Summary: Avg loss: 1.9997, Avg Accuracy: 27.91%, Avg PI: 0.4996, Avg Surprise: 0.3840, Avg Tau: 1.9357, Avg Gating LR-Mod: 0.8164, Avg Expert LR-Mod: 0.8377
+Train Epoch 44 Summary: Avg loss: 1.5335, Avg Accuracy: 44.15%, Avg PI: 0.5097, Avg Surprise: 0.3557, Avg Tau: 1.5444, Avg Gating LR-Mod: 0.7955, Avg Expert LR-Mod: 0.8835
+Train Epoch 45 Summary: Avg loss: 1.4389, Avg Accuracy: 47.50%, Avg PI: 0.5028, Avg Surprise: 0.3799, Avg Tau: 1.4445, Avg Gating LR-Mod: 0.7057, Avg Expert LR-Mod: 0.7539
+Train Epoch 46 Summary: Avg loss: 1.3942, Avg Accuracy: 49.13%, Avg PI: 0.4962, Avg Surprise: 0.4065, Avg Tau: 1.3993, Avg Gating LR-Mod: 0.7488, Avg Expert LR-Mod: 0.7007
+
+--- Validating at global step: 2749 ---
+CIFAR10 Validation set: Avg loss: 1.2933, Accuracy: 53.86%, Avg PI: 0.2584, Avg Surprise: 1.6704, Avg Tau: 1.2357
+MNIST Validation set: Avg loss: 3.0250, Accuracy: 13.77%, Avg PI: 0.0021, Avg Surprise: 10.7342, Avg Tau: 1.7991
+FashionMNIST Validation set: Avg loss: 3.3805, Accuracy: 10.28%, Avg PI: 0.0034, Avg Surprise: 9.2611, Avg Tau: 1.6052
+SVHN Validation set: Avg loss: 3.6972, Accuracy: 11.08%, Avg PI: 0.0071, Avg Surprise: 7.3933, Avg Tau: 1.4432
+
+--- Training on MNIST for 2 epoch(s) ---
+Train Epoch 47 Summary: Avg loss: 0.8200, Avg Accuracy: 72.46%, Avg PI: 0.4512, Avg Surprise: 0.7613, Avg Tau: 0.8871, Avg Gating LR-Mod: 0.8184, Avg Expert LR-Mod: 0.8285
+Train Epoch 48 Summary: Avg loss: 0.2722, Avg Accuracy: 91.59%, Avg PI: 0.5285, Avg Surprise: 0.4511, Avg Tau: 0.3290, Avg Gating LR-Mod: 0.8171, Avg Expert LR-Mod: 0.7727
+
+--- Validating at global step: 2867 ---
+CIFAR10 Validation set: Avg loss: 3.5681, Accuracy: 18.75%, Avg PI: 0.0020, Avg Surprise: 8.7222, Avg Tau: 0.9676
+MNIST Validation set: Avg loss: 0.1642, Accuracy: 95.13%, Avg PI: 0.4174, Avg Surprise: 1.0075, Avg Tau: 0.2099
+FashionMNIST Validation set: Avg loss: 3.1665, Accuracy: 20.48%, Avg PI: 0.0005, Avg Surprise: 11.9051, Avg Tau: 0.9618
+SVHN Validation set: Avg loss: 3.7425, Accuracy: 18.05%, Avg PI: 0.0006, Avg Surprise: 10.6922, Avg Tau: 0.8558
+
+--- Training on FashionMNIST for 3 epoch(s) ---
+Train Epoch 49 Summary: Avg loss: 0.7295, Avg Accuracy: 74.76%, Avg PI: 0.4744, Avg Surprise: 0.5970, Avg Tau: 0.7148, Avg Gating LR-Mod: 0.8874, Avg Expert LR-Mod: 0.8795
+Train Epoch 50 Summary: Avg loss: 0.4413, Avg Accuracy: 83.92%, Avg PI: 0.5209, Avg Surprise: 0.3498, Avg Tau: 0.4612, Avg Gating LR-Mod: 0.8867, Avg Expert LR-Mod: 0.8630
+Train Epoch 51 Summary: Avg loss: 0.4134, Avg Accuracy: 84.93%, Avg PI: 0.5199, Avg Surprise: 0.3510, Avg Tau: 0.4310, Avg Gating LR-Mod: 0.7524, Avg Expert LR-Mod: 0.7124
+
+--- Validating at global step: 3044 ---
+CIFAR10 Validation set: Avg loss: 4.0302, Accuracy: 14.47%, Avg PI: 0.0006, Avg Surprise: 10.6293, Avg Tau: 0.9518
+MNIST Validation set: Avg loss: 3.8208, Accuracy: 20.18%, Avg PI: 0.0000, Avg Surprise: 39.9761, Avg Tau: 0.8066
+FashionMNIST Validation set: Avg loss: 0.4146, Accuracy: 84.88%, Avg PI: 0.3074, Avg Surprise: 1.2818, Avg Tau: 0.3775
+SVHN Validation set: Avg loss: 4.0454, Accuracy: 13.93%, Avg PI: 0.0004, Avg Surprise: 11.8054, Avg Tau: 1.0425
+
+--- Training on SVHN for 5 epoch(s) ---
+Train Epoch 52 Summary: Avg loss: 2.2125, Avg Accuracy: 23.77%, Avg PI: 0.5070, Avg Surprise: 0.3582, Avg Tau: 2.0999, Avg Gating LR-Mod: 0.8645, Avg Expert LR-Mod: 0.8539
+Train Epoch 53 Summary: Avg loss: 1.8391, Avg Accuracy: 36.34%, Avg PI: 0.4968, Avg Surprise: 0.4077, Avg Tau: 1.8488, Avg Gating LR-Mod: 0.7815, Avg Expert LR-Mod: 0.7189
+Train Epoch 54 Summary: Avg loss: 1.6777, Avg Accuracy: 42.21%, Avg PI: 0.4941, Avg Surprise: 0.4157, Avg Tau: 1.6839, Avg Gating LR-Mod: 0.7263, Avg Expert LR-Mod: 0.7346
+Train Epoch 55 Summary: Avg loss: 1.5993, Avg Accuracy: 44.79%, Avg PI: 0.4843, Avg Surprise: 0.4557, Avg Tau: 1.6051, Avg Gating LR-Mod: 0.7556, Avg Expert LR-Mod: 0.7425
+Train Epoch 56 Summary: Avg loss: 1.5308, Avg Accuracy: 47.28%, Avg PI: 0.4741, Avg Surprise: 0.4969, Avg Tau: 1.5354, Avg Gating LR-Mod: 0.6842, Avg Expert LR-Mod: 0.7566
+
+--- Validating at global step: 3404 ---
+CIFAR10 Validation set: Avg loss: 3.1678, Accuracy: 10.25%, Avg PI: 0.0239, Avg Surprise: 5.5175, Avg Tau: 1.6179
+MNIST Validation set: Avg loss: 2.2203, Accuracy: 31.15%, Avg PI: 0.0030, Avg Surprise: 10.2656, Avg Tau: 1.4008
+FashionMNIST Validation set: Avg loss: 2.5997, Accuracy: 18.37%, Avg PI: 0.0093, Avg Surprise: 7.7583, Avg Tau: 1.5951
+SVHN Validation set: Avg loss: 1.2221, Accuracy: 58.49%, Avg PI: 0.1897, Avg Surprise: 2.3709, Avg Tau: 1.2702
+
+Checkpoint for cycle 4 saved.
+
+Final checkpoint saved.
+
+Plots saved to: E:\Dev\Chain\PILF\output\ViT\marathon-v2\img\20250628T090017-marathon_v2-large_pisa_mnist-Metrics.png
+
+Plots saved to: E:\Dev\Chain\PILF\output\ViT\marathon-v2\img
