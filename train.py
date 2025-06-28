@@ -203,6 +203,10 @@ def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], 
                 print(f"\n{'='*20} CYCLE {cycle}/{num_cycles} {'='*20}")
                 stop_training = False
                 for task_name, num_epochs_task in schedule_config['tasks']:
+                    if isinstance(update_strategy, PisaUpdate):
+                        update_strategy.reset_state()
+                        print(f"PISA state reset for task: {task_name}")
+
                     if task_name == 'VALIDATE':
                         if validate_and_record(model, device, val_dataloaders, loss_fn, pi_monitor, metrics['epoch'], global_step):
                             stop_training = True

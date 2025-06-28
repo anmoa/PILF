@@ -141,18 +141,24 @@ def plot_metrics(
     num_standard_plots = len(active_plots) - (2 if gpil_plots > 0 else 0)
     total_subplots = num_standard_plots + gpil_plots
     
-    # Adjust layout based on total plots
-    if total_subplots <= 2:
-        rows, cols = 1, total_subplots
-    elif total_subplots <= 4:
+    # Force a 3x2 layout for consistency, if there are enough plots
+    if total_subplots > 4:
+        rows, cols = 3, 2
+    elif total_subplots > 2:
         rows, cols = 2, 2
-    elif total_subplots <= 6:
-        rows, cols = 2, 3
-    elif total_subplots <= 9:
-        rows, cols = 3, 3
     else:
-        rows = (total_subplots + 2) // 3
-        cols = 3
+        rows, cols = 1, total_subplots
+    
+    # If GPIL plots are present, they need more space, so we adjust.
+    # This is a simple heuristic, might need refinement.
+    if gpil_plots > 0:
+        if total_subplots <= 4:
+            rows, cols = 2, 2
+        elif total_subplots <= 6:
+            rows, cols = 2, 3
+        else:
+            rows = (total_subplots + 2) // 3
+            cols = 3
 
     fig, axes = plt.subplots(rows, cols, figsize=(7 * cols, 5 * rows), squeeze=False)
     axes = axes.flatten()

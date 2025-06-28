@@ -131,7 +131,7 @@ graph LR
     SelectiveUpdate --> FinalModel["Model Update"]
 ```
 
-### 阶段四：G²PIL (Generative Gaussian Predictive Integrity Learning) (当前阶段)
+### 阶段四：G²PIL (Generative Gaussian Predictive Integrity Learning) 
 
 **目标：** 构建一个完全自组织、自我巩固、自我演化的认知架构，实现从“被动学习”到“主动创造”的终极飞跃。我们当前正处于该阶段的早期，专注于实现其核心的路由机制。
 
