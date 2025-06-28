@@ -15,7 +15,7 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
     model.train()
     optimizer.zero_grad()
 
-    for key in ['train_loss', 'train_acc', 'train_pi_score', 'train_surprise', 'train_tau', 'train_gating_tau']:
+    for key in ['train_loss', 'train_acc', 'train_pi', 'train_surprise', 'train_tau', 'train_gating_tau']:
         step_metrics.setdefault(key, [])
 
     epoch_summary: Dict[str, List[Any]] = {
@@ -57,20 +57,9 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
         if (batch_idx + 1) % accumulation_steps == 0:
             pi_metrics = pi_monitor.calculate(model, loss, logits)
             
-            # For GPIL-MoE, we also need to pass the top_indices for sparse gradient updates
-            if isinstance(model, nn.DataParallel):
-                is_gpil_moe = hasattr(model.module, 'zero_inactive_expert_grads')
-            else:
-                is_gpil_moe = hasattr(model, 'zero_inactive_expert_grads')
-
-            if is_gpil_moe:
-                pilr_metrics = update_strategy.step(model, loss, pi_metrics, all_gating_logits)
-                if isinstance(model, nn.DataParallel):
-                    model.module.zero_inactive_expert_grads(all_top_indices)
-                else:
-                    model.zero_inactive_expert_grads(all_top_indices)
-            else:
-                pilr_metrics = update_strategy.step(model, loss, pi_metrics, all_gating_logits)
+            # The new `step` signature includes `all_top_indices` for strategies that need it.
+            # The responsibility of zeroing gradients for inactive experts is now delegated to the strategy itself.
+            pilr_metrics = update_strategy.step(model, loss, pi_metrics, all_gating_logits, all_top_indices)
 
             # In dual PISA mode, the strategy calculates its own global PI metrics.
             # We should use those for logging instead of the ones from the global monitor.
@@ -86,7 +75,8 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
             step_metrics['train_acc'].append((global_step, accuracy))
             for key in ['pi_score', 'surprise', 'tau', 'gating_tau']:
                 if key in pi_metrics:
-                    step_metrics[f'train_{key}'].append((global_step, pi_metrics[key]))
+                    metric_name = key.replace('_score', '')
+                    step_metrics[f'train_{metric_name}'].append((global_step, pi_metrics[key]))
             
             epoch_summary['loss'].append(loss.item())
             epoch_summary['acc'].append(accuracy)
