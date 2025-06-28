@@ -1,0 +1,25 @@
+Logging output to: output/ViT/log\20250628T075240-marathon_v2-large_moe_mnist.log
+Model Suffix: -marathon_v2
+Total Trainable Parameters: 0.46M
+Using parameter groups for optimizer.
+Files already downloaded and verified
+Files already downloaded and verified
+Using downloaded and verified file: temp_data/SVHN\train_32x32.mat
+Using downloaded and verified file: temp_data/SVHN\test_32x32.mat
+
+==================== CYCLE 1/4 ====================
+
+--- Training on CIFAR10 for 4 epoch(s) ---
+Train Epoch 1 Summary: Avg loss: 1.9478, Avg Accuracy: 27.18%, Avg PI: 0.3228, Avg Surprise: 1.5235, Avg Tau: 1.9550
+Train Epoch 2 Summary: Avg loss: 1.7417, Avg Accuracy: 35.25%, Avg PI: 0.3041, Avg Surprise: 1.4242, Avg Tau: 1.7707
+Train Epoch 3 Summary: Avg loss: 1.6268, Avg Accuracy: 40.00%, Avg PI: 0.2902, Avg Surprise: 1.5271, Avg Tau: 1.6613
+Train Epoch 4 Summary: Avg loss: 1.5316, Avg Accuracy: 43.89%, Avg PI: 0.2448, Avg Surprise: 1.8696, Avg Tau: 1.5657
+
+--- Validating at global step: 196 ---
+CIFAR10 Validation set: Avg loss: 1.4510, Accuracy: 47.71%, Avg PI: 0.1643, Avg Surprise: 2.5954, Avg Tau: 1.4075
+MNIST Validation set: Avg loss: 3.6312, Accuracy: 9.51%, Avg PI: 0.0000, Avg Surprise: 18.4550, Avg Tau: 1.7399
+FashionMNIST Validation set: Avg loss: 3.5470, Accuracy: 11.39%, Avg PI: 0.0010, Avg Surprise: 11.7493, Avg Tau: 1.6533
+SVHN Validation set: Avg loss: 3.5446, Accuracy: 9.86%, Avg PI: 0.0068, Avg Surprise: 7.8618, Avg Tau: 1.6124
+
+--- Training on MNIST for 2 epoch(s) ---
+Train Epoch 5 Summary: Avg loss: 2.0614, Avg Accuracy: 25.25%, Avg PI: 0.2355, Avg Surprise: 2.8051, Avg Tau: 1.9859

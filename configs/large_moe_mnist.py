@@ -15,19 +15,3 @@ model_config = {
     'num_experts': 16,    # Doubled from 8
     'top_k': 4,           # Doubled from 2
 }
-
-# Training parameters
-train_config = {
-    'epochs': 30, # Longer training for grokking
-    'batch_size': 1024, # Doubled from 512
-    'accumulation_steps': 1, # Adjusted for larger batch size
-    'learning_rate': 1e-3,
-    'weight_decay': 1e-4,
-    'output_dir': 'output/ViT/',
-}
-
-# PI Monitor parameters
-pi_config = {
-    'alpha': 1.0,
-    'gamma': 0.5,
-}

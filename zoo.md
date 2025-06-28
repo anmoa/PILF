@@ -18,11 +18,20 @@ We also conducted spaced rehearsal experiments on the MNIST and FashionMNIST dat
 | ~0.26M | ~0.26M | ~0.26M |
 | <img src="output/ViT/img/20250627-tiny-moe-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-mnist-mnist-rehearsal.png" style="max-width:200px;"> | <img src="output/ViT/img/20250627-tiny-gbp-2-mnist-mnist-rehearsal.png" style="max-width:200px;"> |
 
-### Marathon Rehearsal Experiments
+### Marathon Rehearsal Experiments v1
 
 A more demanding experimental setup involving cyclical rehearsal across four datasets: CIFAR-10, MNIST, FashionMNIST, and SVHN, in a `5 * (5+1+1+1)` epoch schedule. This tests the model's ability to handle catastrophic forgetting and adapt to different data distributions over a prolonged training period.
 
-| **16x4 MoE Marathon** | **16x4 PILR-S MoE Marathon** |
-| :--:| :--:|
-| ~0.46M | ~0.46M |
-| *TBD* | *TBD* |
+| **16x4 MoE Marathon** | **16x4 PILR-S MoE Marathon** | **16x4 PISA MoE Marathon** |
+| :--:| :--:| :--:|
+| ~0.46M | ~0.46M | ~0.46M |
+| <img src="output/ViT/img/20250628T053559_large-moe-mnist-marathon-rehearsal-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/img/20250628T044505_large-pilr-mnist-marathon-rehearsal-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/img/20250628T070228-marathon_v1-large_pisa_mnist-Metrics.png" style="max-width:200px;"> |
+
+### Marathon Rehearsal Experiments v2
+
+A more challenging setup with a `5 * (4+2+3+5)` schedule, increasing the training focus on more complex datasets (CIFAR-10, SVHN).
+
+| **16x4 MoE Marathon v2** | **16x4 PILR-S MoE Marathon v2** | **16x4 PISA MoE Marathon v2** |
+| :--:| :--:| :--:|
+| ~0.46M | ~0.46M | ~0.46M |
+| *TBD* | *TBD* | *TBD* |

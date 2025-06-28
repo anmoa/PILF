@@ -15,24 +15,3 @@ model_config = {
     'num_experts': 8,    # Number of experts in MoE
     'top_k': 2,           # Top-K routing
 }
-
-# Training parameters
-train_config = {
-    'epochs': 30, # Longer training for grokking
-    'batch_size': 1024, # Doubled from 512
-    'accumulation_steps': 1, # Adjusted for larger batch size
-    'learning_rate': 1e-3,
-    'weight_decay': 1e-4,
-    'output_dir': 'output/ViT/',
-    'train_fn_kwargs': {
-        'pilr_mode': 'lr_scheduler', # Enable LR scheduler mode for PILR-S
-        'sigma_threshold': 1.0,     # Sigma threshold for Gaussian modulation (reduced for stricter modulation)
-        'initial_surprise_ema': 0.0 # Initial EMA for surprise
-    }
-}
-
-# PI Monitor parameters
-pi_config = {
-    'alpha': 1.0,
-    'gamma': 0.5,
-}
