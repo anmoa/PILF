@@ -26,7 +26,16 @@
 
 一个更具挑战性的设置，采用 `5 * (4+2+3+5)` 的周期计划，增加了对更复杂数据集（CIFAR-10, SVHN）的训练比重。
 
-| **16x4 MoE ** | **16x4 PILR-S MoE** | **16x4 PISA MoE ** | **16x4 PISA-2 MoE** |
-| :--:| :--:| :--:| :--:|
+| **16x4 MoE ** || **16x4 PISA MoE ** | **16x4 PISA-2 MoE** |
+| :--:| :--:| :--:|
 | ~0.46M | ~0.46M | ~0.46M | ~0.46M |
-| *待定* | *待定* | *待定* | *待定* |
+| <img src="output/ViT/marathon-v2/img/20250628T075240-marathon_v2-large_moe_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/marathon-v2/img/20250628T095638-marathon_v2-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/marathon-v2/img/20250628T090017-marathon_v2-large_pisa_2_mnist-Metrics.png" style="max-width:200px;"> |
+
+### 马拉松复习实验 v3
+
+一个不含 SVHN 的马拉松复习实验，采用 `4 * (5+2+3)` 的周期计划。
+
+| **16x4 MoE ** | **16x4 PISA MoE** |
+| :--:| :--:|
+| ~0.46M | ~0.46M |
+| <img src="output/ViT/marathon-v3/img/20250628T105444-marathon_v3-large_moe_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/marathon-v3/img/20250628T112443-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> |

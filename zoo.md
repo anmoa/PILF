@@ -29,4 +29,13 @@ A more challenging setup with a `5 * (4+2+3+5)` schedule, increasing the trainin
 | **16x4 MoE** | **16x4 PILR-S MoE** | **16x4 PISA MoE** | **16x4 PISA-2 MoE** |
 | :--:| :--:| :--:| :--:|
 | ~0.46M | ~0.46M | ~0.46M | ~0.46M |
-| *TBD* | *TBD* | *TBD* | *TBD* |
+| <img src="output/ViT/marathon-v2/img/20250628T075240-marathon_v2-large_moe_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/marathon-v2/img/20250628T095638-marathon_v2-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/marathon-v2/img/20250628T090017-marathon_v2-large_pisa_2_mnist-Metrics.png" style="max-width:200px;"> | *TBD* |
+
+### Marathon Rehearsal Experiments v3
+
+A marathon rehearsal experiment without SVHN, following a `4 * (5+2+3)` epoch schedule.
+
+| **16x4 MoE ** | **16x4 PISA MoE** |
+| :--:| :--:|
+| ~0.46M | ~0.46M |
+| <img src="output/ViT/marathon-v3/img/20250628T105444-marathon_v3-large_moe_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/ViT/marathon-v3/img/20250628T112443-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> |
