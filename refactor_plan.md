@@ -1,20 +1,12 @@
 # PILF 训练框架重构：日志与可视化系统 V2
 
-## 1. 核心目标
-
-在进行大规模模型结构重构之前，优先升级并标准化框架的日志与可视化系统。新系统将以 `TensorBoard` 为核心，提供更强大、更具交互性的实验分析能力，并为未来的 `GPILD-MoE` 和 `ΩID` 分析奠定坚实的数据基础。
-
----
-
-## 2. 施工顺序与阶段划分
-
 我们将分三步走：首先，改造数据源，确保所有需要的指标都被准确捕获；其次，重构绘图逻辑，用模块化的方式生成新的图表；最后，将所有内容对接到 `TensorBoard`。
 
-### Phase 1: 数据采集层重构 (Data Collection)
+## Phase 1: 数据采集层重构 (Data Collection)
 
 **目标**: 改造 `utils/training.py` 和 `utils/strategies.py`，使其能够捕获并返回一个结构化的、包含所有绘图所需指标的字典。
 
-#### 1.1. 定义标准数据容器 (`StepResult`)
+### 1.1. 定义标准数据容器 (`StepResult`)
 
 我们将在 `utils/training.py` 或一个新文件 `utils/types.py` 中定义一个 `TypedDict` 或 `dataclass`，作为 `train` 函数中 `step` 级别数据的标准容器。这取代了目前依赖字符串键的 `epoch_summary` 字典，提高了代码的可读性和健壮性。
 
@@ -42,7 +34,7 @@ class StepResult(TypedDict):
     updated_expert_indices: Optional[Dict[int, List[int]]]
 ```
 
-#### 1.2. 改造 `UpdateStrategy` 返回值
+### 1.2. 改造 `UpdateStrategy` 返回值
 
 所有 `UpdateStrategy` 的 `step` 方法都将返回一个包含其策略特定指标的字典，`train` 函数会将其整合到 `StepResult` 中。
 
@@ -91,15 +83,15 @@ class StepResult(TypedDict):
 { "gating_lr_mod": 0.9, "expert_lr_mod": 0.75 }
 ```
 
-#### 1.3. `train` 函数集成
+### 1.3. `train` 函数集成
 
 `utils/training.py` 中的 `train` 函数将负责调用 `pi_monitor` 和 `update_strategy.step()`，然后将所有结果聚合到一个 `StepResult` 实例中，并将其 `append` 到一个 `List[StepResult]` 中。这样，一个 `epoch` 结束后，我们就拥有了该 epoch 内所有步骤的完整、结构化数据，可以直接传递给 `Phase 2` 的可视化函数。
 
-### Phase 2: 可视化层重构 (Visualization)
+## Phase 2: 可视化层重构 (Visualization)
 
 **目标**: 重写 `utils/plotting.py`，废弃当前庞大臃肿的 `plot_metrics` 函数，代之以一系列清晰、独立的绘图函数。每个函数都将返回一个 `matplotlib.figure.Figure` 对象。
 
-#### 2.1. 核心指标图 (`plot_core_metrics`)
+### 2.1. 核心指标图 (`plot_core_metrics`)
 
 - **函数签名**:
 
@@ -116,7 +108,7 @@ class StepResult(TypedDict):
   - **验证数据**: 遍历 `val_logs` (其 key 形如 `'CIFAR10_val_acc'`)，按数据集和指标名称分组，使用 `ax.plot()` 绘制折线图，并用标记标出数据点。
   - X 轴统一为 `Global Step`。
 
-#### 2.2. 学习率调度图 (`plot_lr_scatter`)
+### 2.2. 学习率调度图 (`plot_lr_scatter`)
 
 - **函数签名**:
 
@@ -132,7 +124,7 @@ class StepResult(TypedDict):
   - 为每个系列（`base`, `gating`, `expert`）绘制不同颜色的散点图。
   - Y 轴为 `LR Modifier`，X 轴为 `Global Step`。
 
-#### 2.3. 专家激活/更新热力图 (`plot_expert_heatmap`)
+### 2.3. 专家激活/更新热力图 (`plot_expert_heatmap`)
 
 - **函数签名**:
 
@@ -152,7 +144,7 @@ class StepResult(TypedDict):
   - 使用 `ax.imshow()` 绘制热力图，并添加颜色条和数值标签。
   - 这将取代并泛化当前的 `plot_gpil_expert_activation`。
 
-#### 2.4. 动态 K 值图 (`plot_dynamic_k_scatter`)
+### 2.4. 动态 K 值图 (`plot_dynamic_k_scatter`)
 
 - **函数签名**:
 
@@ -168,15 +160,15 @@ class StepResult(TypedDict):
   - 为每个任务（如 MNIST, CIFAR10）绘制不同颜色的 `top_k` 和 `min_k` 散点图系列。
   - Y 轴为 `K Value`，X 轴为 `Global Step`。
 
-#### 2.5. `plotting.py` 主入口
+### 2.5. `plotting.py` 主入口
 
 旧的 `plot_metrics` 将被一个新的主函数替代，该函数负责调用上述所有绘图函数，并将生成的 `Figure` 对象传递给日志系统（最初是保存到文件，最终是 `TensorBoard`）。
 
-### Phase 3: TensorBoard 集成与最终工作流
+## Phase 3: TensorBoard 集成与最终工作流
 
 **目标**: 将 Phase 1 和 Phase 2 的成果完全整合到 TensorBoard 工作流中，实现日志记录的自动化、标准化和集中化。
 
-#### 3.1. `train.py` 的改造
+### 3.1. `train.py` 的改造
 
 `train.py` 中的 `run_schedule` 函数将是整个工作流的总指挥。
 
@@ -222,7 +214,7 @@ class StepResult(TypedDict):
      # ... etc for all figures
      ```
 
-#### 3.2. 最终产物与清理
+### 3.2. 最终产物与清理
 
 - **目录结构**: 旧的 `output/.../img` 和 `output/.../log` 目录将不再生成。取而代之的是 `output/.../runs/` 目录，其中包含每个实验的 TensorBoard 日志。
 - **代码清理**:
