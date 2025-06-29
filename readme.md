@@ -6,7 +6,7 @@
 > "Don't just train your model, understand its mind."
 
 <p align="center">
-    <a href="zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
+    <a href="docs/zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
 </p>
 
 ---
@@ -99,7 +99,7 @@ To address the fundamental flaws of linear gating, we introduced **Gaussian Rout
 **Core Mechanism: Experts as Distributions, Routing as Probability**
 
 1. **Experts as Distributions**: Each expert is no longer a simple MLP but is defined by a learnable Gaussian distribution (parameterized by a mean `μ` and a log standard deviation `log_sigma`) in the input space, representing its "domain of knowledge."
-2. **Routing as Probability Calculation**: The routing process is no longer a simple linear mapping but involves calculating the log probability density of the input `x` under each expert's Gaussian distribution. This probability directly reflects how well the input matches the expert's "domain of knowledge," fundamentally addressing the issue of gate forgetting.
+2. **Routing as Probability Calculation**: The routing process is no longer a simple linear mapping but involves calculating the log probability density of the input `x` under each expert's Gaussian distribution. This probability reflects how well the input matches an expert's "knowledge domain," which fundamentally promotes the **functional specialization** and **interpretability** of experts.
 3. **Sparse Update**: During backpropagation, only the weights of the `top-k` experts to which the input was routed are updated (including their MLP layers and Gaussian distribution parameters `μ` and `log_sigma`).
 
 ```mermaid

@@ -6,7 +6,7 @@
 > 不仅要训练你的模型，更要理解它的心智。
 
 <p align="center">
-    <a href="zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a> 
+    <a href="docs/zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a> 
 </p>
 
 ---
@@ -99,7 +99,7 @@ sequenceDiagram
 **核心机制: 专家即分布，路由即概率**
 
 1. **专家即分布 (Experts as Distributions)**: 每个专家不再是简单的 MLP，而是在输入空间中由一个可学习的高斯分布（由均值 `μ` 和对数标准差 `log_sigma` 参数化）来定义其“知识领域”。
-2. **路由即计算概率 (Routing as Probability Calculation)**: 路由过程不再是简单的线性映射，而是计算输入 `x` 在每个专家的高斯分布下的对数概率密度。这个概率直接反映了输入与专家“知识领域”的匹配程度，从根本上解决了门控遗忘问题。
+2. **路由即计算概率 (Routing as Probability Calculation)**: 路由过程不再是简单的线性映射，而是计算输入 `x` 在每个专家的高斯分布下的对数概率密度。这个概率反映了输入与专家“知识领域”的匹配程度，从根本上强化了专家的分工和专业化。
 3. **稀疏更新 (Sparse Update)**: 在反向传播时，仅更新被路由到的 `top-k` 个专家的权重（包括其 MLP 层和高斯分布参数 `μ` 和 `log_sigma`）。
 
 ```mermaid
