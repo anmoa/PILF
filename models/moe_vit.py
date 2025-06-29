@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
+
 from .base_vit import VisionTransformer
+
 
 class MoELayer(nn.Module):
     """A Mixture of Experts layer."""

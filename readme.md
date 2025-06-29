@@ -6,7 +6,7 @@
 > "Don't just train your model, understand its mind."
 
 <p align="center">
-    <a href="docs/zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
+    <a href="zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
 </p>
 
 ---
@@ -53,15 +53,15 @@ graph LR
 This is the direct application of the PILF concept to **any standard neural network**. It focuses on a single question: **How to dynamically adjust the learning rate based on `Surprise`?**
 
 - **Core Mechanism**: `effective_lr = base_lr * f(Surprise)`. It replaces traditional learning rate schedulers by using a Gaussian function, `exp(-0.5 * ((surprise - mu) / sigma)^2)`, to calculate a smooth modulation factor, `lr_modifier`, which dynamically scales the learning rate.
-- **PISA (Predictive Integrity-driven Sigma Adaptor)**: The key enhancement to PILR-S. It transforms the standard deviation, `sigma`, in the Gaussian function from a fixed hyperparameter into a dynamic, adaptive state variable. The value of `sigma` is dynamically determined by the second-order statistics (exponential moving variance) of `Surprise`, enabling the model to adapt its learning "tolerance" or "openness" based on the "chaotic level" of its environment.
-- **Configuration Flexibility**: In the current implementation, setting `beta=0` in the configuration file fixes `sigma`, causing PISA to revert to an equivalent PILR-S mode. This is crucial for maximizing learning efficiency on specific tasks.
+- **PILR-D (Predictive Integrity-driven Learning Rate Scheduler-Dynamic)**: The key enhancement to PILR-S. It transforms the standard deviation, `sigma`, in the Gaussian function from a fixed hyperparameter into a dynamic, adaptive state variable. The value of `sigma` is dynamically determined by the second-order statistics (exponential moving variance) of `Surprise`, enabling the model to adapt its learning "tolerance" or "openness" based on the "chaotic level" of its environment.
+- **Configuration Flexibility**: In the current implementation, setting `beta=0` in the configuration file fixes `sigma`, causing PILR-D to revert to an equivalent PILR-S mode. This is crucial for maximizing learning efficiency on specific tasks.
 
 ```mermaid
 sequenceDiagram
     participant Trainer
     participant Model
     participant SigmaPI_Monitor
-    participant LRScheduler as PISA/PILR-S
+    participant LRScheduler as PILR-D/PILR-S
     participant Optimizer
 
     Trainer->>Model: Forward Pass
@@ -84,7 +84,7 @@ sequenceDiagram
     Trainer->>Optimizer: Restore base_lr
 ```
 
-### Stage 2: PIL-MoE (Linear-Gated MoE) - [Deprecated]
+### Stage 2: LinearMoE (Linear-Gated MoE) - [Deprecated]
 
 This stage attempted to apply PILR-S to a standard Mixture-of-Experts (MoE) architecture that used a simple linear layer as its gating network.
 
@@ -92,7 +92,7 @@ This stage attempted to apply PILR-S to a standard Mixture-of-Experts (MoE) arch
   1. **Lack of Significant Functional Specialization**: The linear gate was too simple to guide the experts toward developing stable and distinct functional specializations.
   2. **Catastrophic Forgetting in the Gating Network**: The gating network, being a small neural network itself, also suffered from catastrophic forgetting. After learning a new task, it would forget how to route data from old tasks to the correct experts, leading to a collapse in the entire model's performance.
 
-### Stage 3: GPIL-MoE (Gaussian-Routed MoE) - [Current Stage]
+### Stage 3: GaussMoE (Gaussian-Routed MoE) - [Current Stage]
 
 To address the fundamental flaws of linear gating, we introduced **Gaussian Routing**, which is the core of our current research.
 
@@ -128,14 +128,14 @@ graph LR
 **Current Achievements and Advantages:**
 
 1. **Significant Functional Specialization**: Gaussian routing has successfully induced spontaneous functional specialization among the expert networks. Experiments (see the `marathon-v3` series) clearly show that in multi-task learning, different experts develop stable "knowledge domains" for specific datasets (e.g., MNIST vs. CIFAR10).
-2. **1-Step Rehearsal**: GPIL-MoE demonstrates excellent resistance to catastrophic forgetting. Thanks to functional specialization, when the model re-encounters an old task, it can quickly reactivate the relevant experts' knowledge with a minimal amount of "rehearsal" (e.g., a single epoch). This marks a significant step toward true continual learning.
-3. **Neural Darwinism Pruning (Surprise-Min-K)**: This is a further enhancement to Gaussian routing, inheriting and surpassing the ideas of early GBP. After the `top-k` experts are activated, the system calculates the `Surprise` for each expert and retains only the `min_k` experts with the lowest `Surprise` for updating. This accelerates functional convergence and forces the model to rely on its most "confident" experts, achieving finer-grained resource allocation and stronger knowledge consolidation.
+2. **1-Step Rehearsal**: GaussMoE demonstrates excellent resistance to catastrophic forgetting. Thanks to functional specialization, when the model re-encounters an old task, it can quickly reactivate the relevant experts' knowledge with a minimal amount of "rehearsal" (e.g., a single epoch). This marks a significant step toward true continual learning.
+3. **Neural Darwinism Pruning (`Surprise_Min_Update`, SMK)**: This is a further enhancement to Gaussian routing, inheriting and surpassing the ideas of early GBP. After the `top-k` experts are activated, the system calculates the `Surprise` for each expert and retains only the `min_k` experts with the lowest `Surprise` for updating. This accelerates functional convergence and forces the model to rely on its most "confident" experts, achieving finer-grained resource allocation and stronger knowledge consolidation.
 
 **Limitation: Catastrophic Forgetting Not Yet Eradicated**
 
-Although Gaussian routing significantly **mitigates** catastrophic forgetting through functional specialization, it does **not completely solve** the problem. The experts' "knowledge domains" (i.e., their Gaussian parameters `μ` and `σ`) are still trainable and can "drift" when interfered with by new data distributions. This is why in the future G²PILD-MoE stage, we must introduce a parallel **generative memory system** (e.g., a GAN) to actively consolidate and calibrate these knowledge domains through "dream rehearsal," thereby achieving true continual learning.
+Although Gaussian routing significantly **mitigates** catastrophic forgetting through functional specialization, it does **not completely solve** the problem. The experts' "knowledge domains" (i.e., their Gaussian parameters `μ` and `σ`) are still trainable and can "drift" when interfered with by new data distributions. This is why in the future GenGaussMoE-D stage, we must introduce a parallel **generative memory system** (e.g., a GAN) to actively consolidate and calibrate these knowledge domains through "dream rehearsal," thereby achieving true continual learning.
 
-### Stage 4: G²PILD-MoE (Generative Gaussian-Routed Dynamic MoE) - [Future Direction]
+### Stage 4: GenGaussMoE-D (Generative Gaussian-Routed Dynamic MoE) - [Future Direction]
 
 The goal of this stage is to achieve a fully adaptive cognitive system.
 
@@ -144,7 +144,7 @@ The goal of this stage is to achieve a fully adaptive cognitive system.
 
 ```mermaid
 graph LR
-    subgraph FutureWork [Future Work: G²PILD-MoE]
+    subgraph FutureWork [Future Work: GenGaussMoE-D]
         direction TB
 
         subgraph DynamicK [Dynamic Top-K]
@@ -193,7 +193,7 @@ All experiments are launched from the root directory using the `train.py` script
 | Script     | Main Purpose                        | Example Command                                                                                  |
 | :--------- | :---------------------------------- | :----------------------------------------------------------------------------------------------- |
 | `train.py` | Run all types of experiments        | `python train.py --schedule <schedule_path> --model-config <model_config_path>`                  |
-| `train.py` | Run a marathon rehearsal experiment | `python train.py --schedule schedules/marathon_v3.py --model-config configs/large_gpil_mnist.py` |
+| `train.py` | Run a marathon rehearsal experiment | `python train.py --schedule schedules/marathon_v3.py --model-config configs/GaussMoE.py` |
 
 ---
 

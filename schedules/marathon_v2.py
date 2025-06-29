@@ -15,6 +15,7 @@ schedule_config = {
         ('MNIST', 2),
         ('FashionMNIST', 3),
         ('SVHN', 5),
+        ('VALIDATE', 1),
     ],
 
     # Training parameters
@@ -23,7 +24,7 @@ schedule_config = {
         'accumulation_steps': 1,
         'learning_rate': 1e-3,
         'weight_decay': 1e-4,
-        'output_dir': 'output/ViT/marathon-v2',
+        'output_dir': 'output/marathon-v2',
     },
 
     # PI Monitor parameters

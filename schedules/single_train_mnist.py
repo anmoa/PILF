@@ -18,7 +18,7 @@ schedule_config = {
         'accumulation_steps': 1,
         'learning_rate': 1e-3,
         'weight_decay': 1e-4,
-        'output_dir': 'output/ViT/Grokking_PI',
+        'output_dir': 'output/Grokking_PI',
     },
 
     # PI Monitor parameters

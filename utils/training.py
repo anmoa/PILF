@@ -1,50 +1,50 @@
+from typing import Any, List, Optional, Sized, Tuple, cast
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import datasets, transforms 
-from torch.utils.data import DataLoader
-import os
 from sigma_pi import SigmaPI
-from utils.plotting import plot_metrics
-from utils.strategies import UpdateStrategy
-from typing import Dict, List, Tuple, Any, Optional, Sized
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
-def train(model: nn.Module, device: torch.device, train_loader: DataLoader, optimizer: optim.Optimizer, epoch: int, loss_fn: nn.Module, pi_monitor: SigmaPI, 
-          update_strategy: UpdateStrategy, step_metrics: Dict[str, List[Tuple[int, float]]], epoch_metrics: Dict[str, List[Tuple[int, float]]], 
-          global_step: int, accumulation_steps: int) -> Tuple[int, Dict[str, List[Any]]]:
+from utils.strategies import StrategyComponent
+from utils.types import StepResult, ValidationResult
+
+
+def train(
+    model: nn.Module, 
+    device: torch.device, 
+    train_loader: DataLoader, 
+    optimizer: optim.Optimizer, 
+    epoch: int, 
+    loss_fn: nn.Module, 
+    pi_monitor: SigmaPI, 
+    strategy_components: List[StrategyComponent],
+    writer: "SummaryWriter",
+    global_step: int, 
+    accumulation_steps: int,
+    task_name: str
+) -> Tuple[int, List[StepResult]]:
     model.train()
     optimizer.zero_grad()
 
-    for key in ['train_loss', 'train_acc', 'train_pi', 'train_surprise', 'train_tau', 'train_gating_tau']:
-        step_metrics.setdefault(key, [])
+    epoch_results: List[StepResult] = []
 
-    epoch_summary: Dict[str, List[Any]] = {
-        'loss': [], 'acc': [], 'pi': [], 'surprise': [], 'tau': [], 'gating_tau': [],
-        'surprise_values': [], 'decisions': [], 
-        'lr_mod': [], 'sigma': [],
-        'gating_lr_mod': [], 'gating_sigma': [],
-        'expert_lr_mod': [], 'expert_sigma': [],
-        'consolidate': [], 'ignore': [], 'reject': [], # Add decision tracking
-        'all_top_indices': [], 'all_log_probs': [],
-    }
-
-    all_top_indices = None
-    all_log_probs = None
-
-    for batch_idx, (data, target) in enumerate(train_loader):
+    train_loader_tqdm = tqdm(train_loader, desc=f"Epoch {epoch} ({task_name})", leave=False)
+    for batch_idx, (data, target) in enumerate(train_loader_tqdm):
         data, target = data.to(device), target.to(device)
 
         output = model(data)
         
-        # Unpack model output
-        if isinstance(output, tuple) and len(output) == 3: # GPIL-MoE case
+        all_top_indices, all_log_probs, all_gating_logits = None, None, None
+        if isinstance(output, tuple) and len(output) == 3:
             logits, all_top_indices, all_log_probs = output
-            all_gating_logits = all_log_probs # For compatibility with PISA update
-        elif isinstance(output, tuple): # Other MoE cases
+            all_gating_logits = all_log_probs
+        elif isinstance(output, tuple):
             logits, all_gating_logits = output
-        else: # Base ViT case
+        else:
             logits = output
-            all_gating_logits = None
 
         loss = loss_fn(logits, target)
         loss_normalized = loss / accumulation_steps
@@ -57,86 +57,65 @@ def train(model: nn.Module, device: torch.device, train_loader: DataLoader, opti
         if (batch_idx + 1) % accumulation_steps == 0:
             pi_metrics = pi_monitor.calculate(model, loss, logits)
             
-            # The new `step` signature includes `all_top_indices` for strategies that need it.
-            # The responsibility of zeroing gradients for inactive experts is now delegated to the strategy itself.
-            pilr_metrics = update_strategy.step(model, loss, pi_metrics, all_gating_logits, all_top_indices)
+            step_result: StepResult = {
+                "global_step": global_step,
+                "loss": loss.item(),
+                "accuracy": accuracy,
+                "task_name": task_name,
+                **pi_metrics,
+            }
 
-            # In dual PISA mode, the strategy calculates its own global PI metrics.
-            # We should use those for logging instead of the ones from the global monitor.
-            if 'pi_score' in pilr_metrics:
-                pi_metrics['pi_score'] = pilr_metrics['pi_score']
-            if 'surprise' in pilr_metrics:
-                pi_metrics['surprise'] = pilr_metrics['surprise']
+            # Apply strategy components in order
+            for component in strategy_components:
+                component_metrics = component.apply(model, optimizer, pi_metrics, all_gating_logits, all_top_indices)
+                step_result.update(component_metrics)
             
-            optimizer.zero_grad()
+            optimizer.zero_grad() # Moved here to be after all strategy applications
 
-            # Log metrics
-            step_metrics['train_loss'].append((global_step, loss.item()))
-            step_metrics['train_acc'].append((global_step, accuracy))
-            for key in ['pi_score', 'surprise', 'tau', 'gating_tau']:
-                if key in pi_metrics:
-                    metric_name = key.replace('_score', '')
-                    step_metrics[f'train_{metric_name}'].append((global_step, pi_metrics[key]))
-            
-            epoch_summary['loss'].append(loss.item())
-            epoch_summary['acc'].append(accuracy)
-            for key in ['pi_score', 'surprise', 'tau', 'gating_tau']:
-                if key in pi_metrics:
-                    epoch_summary[key.replace('_score', '')].append(pi_metrics[key])
+            if 'pi_score' in step_result: # Check in step_result as it's updated by strategies
+                pi_metrics['pi_score'] = cast(float, step_result['pi_score'])
+            if 'surprise' in step_result:
+                pi_metrics['surprise'] = cast(float, step_result['surprise'])
 
-            if pilr_metrics:
-                for key, value in pilr_metrics.items():
-                    if key in epoch_summary:
-                        epoch_summary[key].append(value)
-                # For backward compatibility with single-PISA surprise logging
-                if 'surprise_value' in pilr_metrics and 'surprise_values' in epoch_summary:
-                     epoch_summary['surprise_values'].append((global_step, pilr_metrics['surprise_value']))
-                
-                # Log decision for plotting
-                if 'decision' in pilr_metrics:
-                    epoch_summary['surprise_values'].append((global_step, pi_metrics['surprise']))
-                    epoch_summary['decisions'].append((global_step, pilr_metrics['decision']))
-                    epoch_summary[pilr_metrics['decision'].lower()].append(1)
-
-
+            epoch_results.append(step_result)
             global_step += 1
-        
-    if all_top_indices is not None:
-        epoch_summary['all_top_indices'].append(all_top_indices)
-    if all_log_probs is not None:
-        epoch_summary['all_log_probs'].append(all_log_probs)
 
-    avg_metrics = {key: sum(vals) / len(vals) if vals else 0 for key, vals in epoch_summary.items() if isinstance(vals, list) and key not in ['surprise_values', 'decisions', 'all_top_indices', 'all_log_probs']}
+            # --- Log metrics to TensorBoard at each step ---
+            for key, value in step_result.items():
+                if key in ['cognitive_cost', 'epsilon']: # Skip logging cognitive_cost and epsilon
+                    continue
+                if isinstance(value, (int, float)):
+                    tag = f'Predictive Integrity/train/{task_name}' if key == 'pi_score' else f'{key.replace("_", " ").title()}/train/{task_name}'
+                    writer.add_scalar(tag, value, global_step)
+            writer.flush()
+
+            train_loader_tqdm.set_postfix(
+                loss=f"{step_result.get('loss', 0.0):.4f}",
+                acc=f"{step_result.get('accuracy', 0.0):.2f}%",
+                pi=f"{step_result.get('pi_score', 0.0):.4f}",
+                surprise=f"{step_result.get('surprise', 0.0):.4f}",
+            )
     
-    for key, avg_val in avg_metrics.items():
-        metric_name = f'train_{key}'
-        if metric_name in epoch_metrics:
-            epoch_metrics[metric_name].append((global_step - 1, avg_val))
+    if epoch_results:
+        def safe_avg(key: str) -> Optional[float]:
+            values = [r.get(cast(Any, key)) for r in epoch_results if r.get(cast(Any, key)) is not None]
+            if not values:
+                return None
+            numeric_values = [v for v in values if isinstance(v, (int, float))]
+            return sum(numeric_values) / len(numeric_values) if numeric_values else None
 
-    summary_str = f"Train Epoch {epoch} Summary: Avg loss: {avg_metrics.get('loss', 0):.4f}, Avg Accuracy: {avg_metrics.get('acc', 0):.2f}%, Avg PI: {avg_metrics.get('pi', 0):.4f}, Avg Surprise: {avg_metrics.get('surprise', 0):.4f}, Avg Tau: {avg_metrics.get('tau', 0):.4f}"
-    if avg_metrics.get('gating_tau'):
-        summary_str += f", Avg Gating Tau: {avg_metrics['gating_tau']:.4f}"
-    if avg_metrics.get('lr_mod'):
-        summary_str += f", Avg LR-Mod: {avg_metrics['lr_mod']:.4f}"
-    if avg_metrics.get('gating_lr_mod'):
-        summary_str += f", Avg Gating LR-Mod: {avg_metrics['gating_lr_mod']:.4f}"
-    if avg_metrics.get('expert_lr_mod'):
-        summary_str += f", Avg Expert LR-Mod: {avg_metrics['expert_lr_mod']:.4f}"
-    print(summary_str)
-    
-    # Add decision stats to summary string
-    if hasattr(update_strategy, 'crisis_threshold') and update_strategy.crisis_threshold is not None:
-        consolidate_count = len(epoch_summary['consolidate'])
-        ignore_count = len(epoch_summary['ignore'])
-        reject_count = len(epoch_summary['reject'])
-        total_decisions = consolidate_count + ignore_count + reject_count
-        if total_decisions > 0:
-            print(f"Decision Stats: Consolidate: {100*consolidate_count/total_decisions:.1f}%, Ignore: {100*ignore_count/total_decisions:.1f}%, Reject: {100*reject_count/total_decisions:.1f}%")
+        summary_parts = [
+            f"Train Epoch {epoch} Summary:",
+            f"Avg loss: {safe_avg('loss'):.4f}",
+            f"Avg Accuracy: {safe_avg('accuracy'):.2f}%",
+            f"Avg PI: {safe_avg('pi_score'):.4f}",
+            f"Avg Surprise: {safe_avg('surprise'):.4f}",
+        ]
+        print(", ".join(filter(None, summary_parts)))
 
-    # Return all metrics collected during the epoch
-    return global_step, epoch_summary
+    return global_step, epoch_results
 
-def validate(model: nn.Module, device: torch.device, val_loader: DataLoader, loss_fn: nn.Module, pi_monitor: SigmaPI, dataset_name: str = "Validation") -> Tuple[float, float, float, float, float, float]:
+def validate(model: nn.Module, device: torch.device, val_loader: DataLoader, loss_fn: nn.Module, pi_monitor: SigmaPI, dataset_name: str = "Validation") -> ValidationResult:
     model.eval()
     total_loss, correct = 0.0, 0
     all_pi_scores: List[float] = []
@@ -170,17 +149,23 @@ def validate(model: nn.Module, device: torch.device, val_loader: DataLoader, los
     avg_loss = total_loss / len(val_loader)
     
     dataset = val_loader.dataset
-    if not isinstance(dataset, Sized):
-        raise TypeError("Dataset is not Sized, cannot calculate accuracy.")
-    
-    accuracy = 100. * correct / len(dataset)
+    num_samples = len(cast(Sized, dataset))
+    accuracy = 100. * correct / num_samples
     avg_pi = sum(all_pi_scores) / len(all_pi_scores) if all_pi_scores else 0.0
     avg_surprise = sum(all_surprises) / len(all_surprises) if all_surprises else 0.0
     avg_tau = sum(all_taus) / len(all_taus) if all_taus else 0.0
-    avg_gating_tau = sum(all_gating_taus) / len(all_gating_taus) if all_gating_taus else 0.0
+    avg_gating_tau = sum(all_gating_taus) / len(all_gating_taus) if all_gating_taus else None
 
-    summary_str = f"{dataset_name} set: Avg loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%, Avg PI: {avg_pi:.4f}, Avg Surprise: {avg_surprise:.4f}, Avg Tau: {avg_tau:.4f}"
-    if avg_gating_tau > 0:
-        summary_str += f", Avg Gating Tau: {avg_gating_tau:.4f}"
-    print(summary_str)
+    summary_parts = [
+        f"{dataset_name} set:",
+        f"Avg loss: {avg_loss:.4f}",
+        f"Accuracy: {accuracy:.2f}%",
+        f"Avg PI: {avg_pi:.4f}" if avg_pi is not None else "",
+        f"Avg Surprise: {avg_surprise:.4f}" if avg_surprise is not None else "",
+        f"Avg Tau: {avg_tau:.4f}" if avg_tau is not None else ""
+    ]
+    if avg_gating_tau is not None and avg_gating_tau > 0:
+        summary_parts.append(f"Avg Gating Tau: {avg_gating_tau:.4f}")
+    
+    print(", ".join(filter(None, summary_parts)))
     return avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau

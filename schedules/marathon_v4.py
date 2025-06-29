@@ -4,7 +4,7 @@ schedule_config = {
         'weight_decay': 0.01,
         'batch_size': 64,
         'epochs': 1, 
-        'output_dir': 'output/ViT/marathon-v4/',
+        'output_dir': 'output/marathon-v4/',
         'accumulation_steps': 2,
     },
     'pi_config': {

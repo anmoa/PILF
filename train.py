@@ -1,308 +1,372 @@
+import atexit
+import importlib
 import os
-import sys
+import subprocess
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-import argparse
-import importlib.util
 from sigma_pi import SigmaPI
-from utils.training import train, validate
-from utils.plotting import plot_metrics
-from utils.strategies import UpdateStrategy, StandardUpdate, SelectiveUpdate, PisaUpdate
-from models import VisionTransformer, MoEVisionTransformer, GPILMoEVisionTransformer
-from torchvision import datasets, transforms
-from datetime import datetime
-from typing import Dict, Any, Optional, List, Tuple
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
-class RepeatChannel(object):
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return x.repeat(3, 1, 1)
+from models import GaussianMoEVisionTransformer, MoEVisionTransformer, VisionTransformer
+from utils.datasets import get_dataset
+from utils.plotting import plot_expert_heatmap, plot_expert_scatter
+from utils.strategies import (
+    PILRStrategy,
+    SelectiveUpdateStrategy,
+    StandardStrategy,
+    StrategyComponent,
+    SurpriseMinKStrategy,
+)
+from utils.training import validate
+from utils.types import StepResult
 
-class Tee(object):
-    def __init__(self, *files):
-        self.files = files
-    def write(self, obj):
-        for f in self.files:
-            f.write(obj)
-            f.flush()
-    def flush(self):
-        for f in self.files:
-            f.flush()
 
-def setup_experiment(model_config: Dict[str, Any], train_config: Dict[str, Any], pi_config: Dict[str, Any], model_name_suffix: str = "", checkpoint_path: Optional[str] = None):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if device.type == 'cpu':
-        raise RuntimeError("CUDA not available, exiting.")
-
-    model_type = model_config.get('model_type')
-    if 'img_size' not in model_config:
-        model_config['img_size'] = 32
-
-    if model_type == 'base':
-        model = VisionTransformer(**{k: v for k, v in model_config.items() if k != 'model_type'}).to(device)
-    elif model_type in ['moe', 'pilr_moe', 'sel_moe']:
-        model = MoEVisionTransformer(**model_config).to(device)
-    elif model_type == 'gpil_moe':
-        model = GPILMoEVisionTransformer(**model_config).to(device)
-    else:
-        raise ValueError(f"Unknown model_type: {model_type}")
-
-    if checkpoint_path:
-        print(f"Loading checkpoint from: {checkpoint_path}")
-        model.load_state_dict(torch.load(checkpoint_path))
-
-    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
-    print(f"Model Suffix: {model_name_suffix}")
-    print(f"Total Trainable Parameters: {total_params/1e6:.2f}M")
-
-    params: List[Dict[str, Any]]
-    if isinstance(model, GPILMoEVisionTransformer):
-        gating_params = [p for n, p in model.named_parameters() if 'expert_mus' in n or 'expert_log_sigmas' in n]
-        expert_params = [p for n, p in model.named_parameters() if 'experts' in n]
-        base_params = [p for n, p in model.named_parameters() if 'expert_mus' not in n and 'expert_log_sigmas' not in n and 'experts' not in n]
-        
-        params = [
-            {'name': 'gating', 'params': gating_params},
-            {'name': 'experts', 'params': expert_params},
-            {'name': 'base', 'params': base_params}
-        ]
-        print("Using parameter groups for GPIL-MoE optimizer.")
-    elif hasattr(model, 'get_param_groups'):
-        params = model.get_param_groups()
-        print("Using parameter groups for optimizer.")
-    else:
-        params = [{'params': model.parameters()}]
-
-    optimizer = optim.AdamW(params, lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
-    loss_fn = nn.CrossEntropyLoss()
-    pi_monitor = SigmaPI(**pi_config, device=device)
-
-    return model, optimizer, loss_fn, pi_monitor, device
-
-def get_dataloaders(dataset_name: str, batch_size: int, img_size: int, num_workers: int = 0):
-    transform_3_channel_train = transforms.Compose([
-        transforms.Resize((img_size, img_size)),
-        transforms.RandomCrop(img_size, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
-    transform_3_channel_test = transforms.Compose([
-        transforms.Resize((img_size, img_size)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
-    transform_1_channel = transforms.Compose([
-        transforms.Resize((img_size, img_size)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,)),
-        RepeatChannel()
-    ])
-    dataset_map = {
-        'CIFAR10': (datasets.CIFAR10, {'train': True, 'transform': transform_3_channel_train}, {'train': False, 'transform': transform_3_channel_test}),
-        'SVHN': (datasets.SVHN, {'split': 'train', 'transform': transform_3_channel_train}, {'split': 'test', 'transform': transform_3_channel_test}),
-        'MNIST': (datasets.MNIST, {'train': True, 'transform': transform_1_channel}, {'train': False, 'transform': transform_1_channel}),
-        'FASHIONMNIST': (datasets.FashionMNIST, {'train': True, 'transform': transform_1_channel}, {'train': False, 'transform': transform_1_channel}),
+def _get_model(model_config: Dict[str, Any], device: torch.device) -> nn.Module:
+    model_type = model_config.pop('model_type')
+    model_map = {
+        'dense': VisionTransformer,
+        'moe': MoEVisionTransformer,
+        'gaussian_moe': GaussianMoEVisionTransformer,
     }
-    dataset_class, train_kwargs, test_kwargs = dataset_map[dataset_name.upper()]
-    data_dir = f"temp_data/{dataset_name.upper()}"
-    train_dataset = dataset_class(data_dir, download=True, **train_kwargs)
-    val_dataset = dataset_class(data_dir, download=True, **test_kwargs)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return train_loader, val_loader
+    model_cls = model_map.get(model_type)
+    if not model_cls:
+        raise ValueError(f"Unknown model type: {model_type}")
+    return model_cls(**model_config).to(device)
 
-def validate_and_record(model, device, dataloaders, loss_fn, pi_monitor, epoch_metrics, global_step):
-    print(f"\n--- Validating at global step: {global_step} ---")
-    stop_early = False
-    for val_name, val_loaders in dataloaders.items():
-        val_loss, val_acc, val_pi, val_surprise, val_tau, val_gating_tau = validate(
-            model, device, val_loaders['val'], loss_fn, pi_monitor, dataset_name=f"{val_name} Validation"
-        )
-        metrics_to_log = [('loss', val_loss), ('acc', val_acc), ('pi', val_pi), ('surprise', val_surprise), ('tau', val_tau)]
-        if val_gating_tau > 0:
-            metrics_to_log.append(('gating_tau', val_gating_tau))
-        
-        for metric_name, metric_val in metrics_to_log:
-            epoch_metrics.setdefault(f'{val_name}_val_{metric_name}', []).append((global_step, metric_val))
+def _get_optimizer(model: nn.Module, learning_rate: float, weight_decay: float) -> optim.Optimizer:
+    param_groups = model.get_param_groups() if hasattr(model, 'get_param_groups') else [
+        {'params': model.parameters()}
+    ]
+    for pg in param_groups:
+        pg['lr'] = learning_rate
+        pg['initial_lr'] = learning_rate
+    return optim.AdamW(param_groups, lr=learning_rate, weight_decay=weight_decay)
 
-        # Early stopping check for this validation dataset
-        if val_acc > 95.0 and val_pi > 0.95 and val_surprise < 0.1:
-            print(f"Early stopping condition met for {val_name}: Acc > 95%, PI > 0.95, Surprise < 0.1")
-            stop_early = True
-            
-    return stop_early
+def _get_loss_fn() -> nn.Module:
+    return nn.CrossEntropyLoss()
 
-def run_schedule(schedule_config: Dict[str, Any], model_config: Dict[str, Any], schedule_path: str, model_config_path: str, checkpoint_path: Optional[str] = None):
-    model_cfg = model_config
-    train_cfg = schedule_config['train_config']
-    pi_cfg = schedule_config.get('pi_config', {'alpha': 1.0, 'gamma': 0.5}) # Default pi_config
-    output_base_dir = train_cfg['output_dir']
+def _get_strategy_components(
+    strategy_configs: List[Dict[str, Any]],
+    device: torch.device,
+    pilr_config: Dict[str, Any]
+) -> List[StrategyComponent]:
+    strategy_map = {
+        'Standard': StandardStrategy,
+        'Selective': SelectiveUpdateStrategy,
+        'SurpriseMinK': SurpriseMinKStrategy,
+        'PILR_Single': PILRStrategy,
+        'PILR_Dual': PILRStrategy,
+    }
     
-    current_time_iso = datetime.now().strftime("%Y%m%dT%H%M%S")
-    schedule_name = os.path.basename(schedule_path).replace('.py', '')
-    model_config_name = os.path.basename(model_config_path).replace('.py', '')
-    file_prefix = f"{current_time_iso}-{schedule_name}-{model_config_name}"
-
-    log_dir = os.path.join(output_base_dir, 'log')
-    os.makedirs(log_dir, exist_ok=True)
-    log_file_path = os.path.join(log_dir, f"{file_prefix}.log")
-
-    original_stdout = sys.stdout
-    with open(log_file_path, 'w') as log_file:
-        sys.stdout = Tee(original_stdout, log_file)
-        print(f"Logging output to: {log_file_path}")
-        try:
-            model, optimizer, loss_fn, pi_monitor, device = setup_experiment(
-                model_cfg, train_cfg, pi_cfg, model_name_suffix=f"-{schedule_name}", checkpoint_path=checkpoint_path
-            )
-
-            model_type = model_cfg.get('model_type')
-            update_strategy: UpdateStrategy
-            if model_type == 'moe':
-                update_strategy = StandardUpdate(optimizer)
-            elif model_type == 'gpil_moe':
-                if 'train_fn_kwargs' in model_cfg:
-                    pisa_kwargs = model_cfg.get('train_fn_kwargs', {})
-                    pisa_kwargs.update(pi_cfg)
-                    update_strategy = PisaUpdate(optimizer, device=device, **pisa_kwargs)
-                else:
-                    update_strategy = StandardUpdate(optimizer)
-            elif model_type in ['sel_moe']:
-                update_strategy = SelectiveUpdate(optimizer)
-            elif model_type == 'pilr_moe':
-                    pisa_kwargs = model_cfg.get('train_fn_kwargs', {})
-                    pisa_kwargs.update(pi_cfg)
-                    update_strategy = PisaUpdate(optimizer, device=device, **pisa_kwargs)
-            else:
-                # Default to standard for 'base' model or if unspecified
-                update_strategy = StandardUpdate(optimizer)
-
-            all_datasets = list(set(schedule_config['val_datasets'] + [task[0] for task in schedule_config['tasks'] if task[0] != 'VALIDATE']))
-            dataloaders = {
-                name: dict(zip(['train', 'val'], get_dataloaders(name, train_cfg['batch_size'], model_cfg.get('img_size', 32), num_workers=0)))
-                for name in all_datasets
-            }
-            val_dataloaders = {name: {'val': dataloaders[name]['val']} for name in schedule_config['val_datasets']}
-
-            metrics: Dict[str, Any] = {
-                'step': {}, 'epoch': {}, 
-                'pilr_surprise': [], 'pilr_decisions': [], 
-                'lr_mod': [], 'sigma': [],
-                'gating_lr_mod': [], 'gating_sigma': [],
-                'expert_lr_mod': [], 'expert_sigma': [],
-                'all_top_indices': [], 'all_log_probs': [],
-            }
-            global_step, total_epochs = 0, 0
+    components: List[StrategyComponent] = []
+    for config in strategy_configs:
+        strategy_name = config['name']
+        strategy_cls = strategy_map.get(strategy_name)
+        if not strategy_cls:
+            raise ValueError(f"Unknown strategy component: {strategy_name}")
+        
+        component_kwargs = {**pilr_config, **config}
+        
+        if strategy_cls == PILRStrategy:
+            components.append(strategy_cls(device=device, **component_kwargs))
+        else:
+            components.append(strategy_cls(**component_kwargs))
             
-            num_cycles = schedule_config.get('num_cycles', 1)
+    return components
 
-            for cycle in range(1, num_cycles + 1):
-                print(f"\n{'='*20} CYCLE {cycle}/{num_cycles} {'='*20}")
-                stop_training = False
-                for task_name, num_epochs_task in schedule_config['tasks']:
-                    if isinstance(update_strategy, PisaUpdate):
-                        update_strategy.reset_state()
-                        print(f"PISA state reset for task: {task_name}")
+tensorboard_process: Optional[subprocess.Popen[bytes]] = None
 
-                    if task_name == 'VALIDATE':
-                        if validate_and_record(model, device, val_dataloaders, loss_fn, pi_monitor, metrics['epoch'], global_step):
-                            stop_training = True
-                            break
-                        continue
+def _cleanup_tensorboard() -> None:
+    global tensorboard_process
+    if tensorboard_process:
+        print("Shutting down TensorBoard...")
+        tensorboard_process.kill()
+        tensorboard_process = None
 
-                    # If num_epochs is None, use the one from train_config, else use the task-specific one
-                    num_epochs = num_epochs_task if num_epochs_task is not None else train_cfg.get('epochs', 1)
-                    print(f"\n--- Training on {task_name} for {num_epochs} epoch(s) ---")
-                    for _ in range(num_epochs):
-                        total_epochs += 1
-                        global_step, epoch_summary = train(
-                            model, device, dataloaders[task_name]['train'], optimizer, total_epochs, loss_fn, pi_monitor,
-                            update_strategy, metrics['step'], metrics['epoch'], global_step, train_cfg['accumulation_steps']
+def _initialize_experiment(
+    model_config_module: Any,
+    schedule_config: Dict[str, Any],
+    output_dir: str,
+    device: torch.device
+) -> Tuple[nn.Module, optim.Optimizer, nn.Module, SigmaPI, List[StrategyComponent], SummaryWriter, Dict[str, Any]]:
+    
+    global tensorboard_process
+    
+    model_config = getattr(model_config_module, 'model_config')
+    train_strategy_config = getattr(model_config_module, 'train_strategy_config', {'strategies': [{'name': 'Standard'}]})
+    pilr_config = getattr(model_config_module, 'pilr_config', {})
+
+    model = _get_model(model_config, device)
+    optimizer = _get_optimizer(model, schedule_config['train_config']['learning_rate'], schedule_config['train_config']['weight_decay'])
+    loss_fn = _get_loss_fn()
+    pi_monitor = SigmaPI(device=device, **schedule_config['pi_config'])
+
+    strategy_components = _get_strategy_components(train_strategy_config['strategies'], device, pilr_config)
+
+    runs_dir = os.path.join(output_dir, "runs")
+    os.makedirs(runs_dir, exist_ok=True)
+    log_dir = os.path.join(runs_dir, datetime.now().strftime("%Y%m%d-%H%M%S"))
+    writer = SummaryWriter(log_dir=log_dir)
+    
+    tb_command = ["tensorboard", "--logdir", log_dir, "--port", "6006"]
+    tensorboard_process = subprocess.Popen(tb_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    atexit.register(_cleanup_tensorboard)
+    
+    print(f"TensorBoard launched for this experiment. View at: http://127.0.0.1:6006")
+
+    return model, optimizer, loss_fn, pi_monitor, strategy_components, writer, model_config
+
+def run_schedule(
+    model_config_path: str,
+    schedule_path: str,
+    resume_from: Optional[str] = None
+) -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    schedule_module_name = schedule_path.replace('.py', '').replace(os.sep, '.')
+    schedule_config = importlib.import_module(schedule_module_name).schedule_config
+
+    model_module_name = model_config_path.replace('.py', '').replace(os.sep, '.')
+    model_config_module = importlib.import_module(model_module_name)
+    
+    model_name = os.path.basename(model_config_path).replace('.py', '')
+    schedule_name = os.path.basename(schedule_path).replace('.py', '')
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    
+    output_dir = os.path.join('output', schedule_name, model_name, timestamp)
+    
+    for subdir in ["checkpoints", "runs", "img"]:
+        os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
+    
+    model, optimizer, loss_fn, pi_monitor, strategy_components, writer, model_config = \
+        _initialize_experiment(model_config_module, schedule_config, output_dir, device)
+
+    print(f"Experiment output will be saved to: {output_dir}")
+
+    print("\n--- Pre-checking datasets ---")
+    all_datasets_in_schedule = {task_name for task_name, _ in schedule_config['tasks'] if task_name != 'VALIDATE'}
+    all_datasets_in_schedule.update(schedule_config['val_datasets'])
+
+    for dataset_name_to_check in all_datasets_in_schedule:
+        try:
+            print(f"Checking dataset: {dataset_name_to_check}...")
+            get_dataset(dataset_name_to_check, model_config['img_size'], model_config['patch_size'], data_root='./temp_data')
+            print(f"Dataset '{dataset_name_to_check}' is available.")
+        except Exception as e:
+            print(f"Error: Dataset '{dataset_name_to_check}' is not available or failed to load: {e}")
+            print("Please ensure all required datasets are correctly configured and accessible.")
+            return
+    print("--- All datasets pre-checked successfully ---")
+
+    global_step = 0
+    
+    if resume_from:
+        if os.path.isfile(resume_from):
+            print(f"Resuming from checkpoint: {resume_from}")
+            model.load_state_dict(torch.load(resume_from, map_location=device))
+        else:
+            print(f"Warning: Checkpoint file not found at '{resume_from}'. Starting from scratch.")
+    
+    all_train_results: List[StepResult] = []
+    val_logs: Dict[str, List[Tuple[int, float]]] = {ds: [] for ds in schedule_config['val_datasets']}
+
+    for cycle in range(schedule_config['num_cycles']):
+        print(f"\n--- Cycle {cycle + 1}/{schedule_config['num_cycles']} ---")
+        for task_name, num_epochs in schedule_config['tasks']:
+            if task_name == 'VALIDATE':
+                print("Performing validation across all datasets...")
+                for val_ds_name in schedule_config['val_datasets']:
+                    _, test_dataset = get_dataset(val_ds_name, model_config['img_size'], model_config['patch_size'])
+                    val_loader = DataLoader(test_dataset, batch_size=schedule_config['train_config']['batch_size'], shuffle=False)
+                    avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau = validate(model, device, val_loader, loss_fn, pi_monitor, val_ds_name)
+                    
+                    writer.add_scalar(f'Validation/Loss/{val_ds_name}', avg_loss, global_step)
+                    writer.add_scalar(f'Validation/Accuracy/{val_ds_name}', accuracy, global_step)
+                    if avg_pi is not None: writer.add_scalar(f'Validation/PI_Score/{val_ds_name}', avg_pi, global_step)
+                    if avg_surprise is not None: writer.add_scalar(f'Validation/Surprise/{val_ds_name}', avg_surprise, global_step)
+                    if avg_tau is not None: writer.add_scalar(f'Validation/Tau/{val_ds_name}', avg_tau, global_step)
+                    if avg_gating_tau is not None: writer.add_scalar(f'Validation/Gating_Tau/{val_ds_name}', avg_gating_tau, global_step)
+                    val_logs[val_ds_name].append((global_step, accuracy))
+                continue
+
+            print(f"Training on {task_name} for {num_epochs} epochs...")
+            train_dataset, _ = get_dataset(task_name, model_config['img_size'], model_config['patch_size'])
+            train_loader = DataLoader(train_dataset, batch_size=schedule_config['train_config']['batch_size'], shuffle=True)
+
+            for epoch in range(1, num_epochs + 1):
+                model.train()
+                optimizer.zero_grad()
+
+                epoch_results: List[StepResult] = []
+
+                train_loader_tqdm = tqdm(train_loader, desc=f"Epoch {epoch} ({task_name})", leave=False)
+                for batch_idx, (data, target) in enumerate(train_loader_tqdm):
+                    data, target = data.to(device), target.to(device)
+
+                    output = model(data)
+                    
+                    all_top_indices, all_log_probs, all_gating_logits = None, None, None
+                    if isinstance(output, tuple) and len(output) == 3:
+                        logits, all_top_indices, all_log_probs = output
+                        all_gating_logits = all_log_probs
+                    elif isinstance(output, tuple):
+                        logits, all_gating_logits = output
+                    else:
+                        logits = output
+
+                    loss = loss_fn(logits, target)
+                    loss_normalized = loss / schedule_config['train_config']['accumulation_steps']
+                    loss_normalized.backward()
+
+                    pred = logits.argmax(dim=1, keepdim=True)
+                    correct = pred.eq(target.view_as(pred)).sum().item()
+                    accuracy = 100. * correct / len(data)
+
+                    if (batch_idx + 1) % schedule_config['train_config']['accumulation_steps'] == 0:
+                        pi_metrics = pi_monitor.calculate(model, loss, logits)
+                        
+                        step_result: StepResult = {
+                            "global_step": global_step,
+                            "loss": loss.item(),
+                            "accuracy": accuracy,
+                            "task_name": task_name,
+                            **pi_metrics,
+                        }
+
+                        for component in strategy_components:
+                            component_metrics = component.apply(model, optimizer, pi_metrics, all_gating_logits, all_top_indices)
+                            step_result.update(component_metrics)
+                        
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                        optimizer.step()
+                        optimizer.zero_grad()
+
+                        epoch_results.append(step_result)
+                        global_step += 1
+
+                        for key, value in step_result.items():
+                            if key in ['cognitive_cost', 'epsilon', 'active_expert_indices', 'updated_expert_indices', 'all_log_probs', 'all_top_indices']:
+                                continue
+                            if isinstance(value, (int, float)):
+                                tag = f'Predictive Integrity/train/{task_name}' if key == 'pi_score' else f'{key.replace("_", " ").title()}/train/{task_name}'
+                                writer.add_scalar(tag, value, global_step)
+                        writer.flush()
+
+                        train_loader_tqdm.set_postfix(
+                            loss=f"{step_result.get('loss', 0.0):.4f}",
+                            acc=f"{step_result.get('accuracy', 0.0):.2f}%",
+                            pi=f"{step_result.get('pi_score', 0.0):.4f}",
+                            surprise=f"{step_result.get('surprise', 0.0):.4f}",
                         )
-                        # Append metrics from the epoch summary to the main metrics dict
-                        metrics['pilr_surprise'].extend(epoch_summary.get('surprise_values', []))
-                        metrics['pilr_decisions'].extend(epoch_summary.get('decisions', []))
-                        metrics['lr_mod'].extend(epoch_summary.get('lr_mod', []))
-                        metrics['sigma'].extend(epoch_summary.get('sigma', []))
-                        metrics['gating_lr_mod'].extend(epoch_summary.get('gating_lr_mod', []))
-                        metrics['gating_sigma'].extend(epoch_summary.get('gating_sigma', []))
-                        metrics['expert_lr_mod'].extend(epoch_summary.get('expert_lr_mod', []))
-                        metrics['expert_sigma'].extend(epoch_summary.get('expert_sigma', []))
-                        metrics['all_top_indices'].extend(epoch_summary.get('all_top_indices', []))
-                        metrics['all_log_probs'].extend(epoch_summary.get('all_log_probs', []))
-
-                if stop_training:
-                    print("Early stopping triggered. Moving to final checkpoint and plotting.")
-                    break 
-
-                # Final validation at the end of the cycle, unless the last task was already a validation
-                if schedule_config['tasks'] and schedule_config['tasks'][-1][0] != 'VALIDATE':
-                    if validate_and_record(model, device, val_dataloaders, loss_fn, pi_monitor, metrics['epoch'], global_step):
-                        print("Early stopping triggered after final validation.")
-                        break
                 
-                if num_cycles > 1:
-                    checkpoint_dir = os.path.join(output_base_dir, 'checkpoints')
-                    os.makedirs(checkpoint_dir, exist_ok=True)
-                    torch.save(model.state_dict(), os.path.join(checkpoint_dir, f"{file_prefix}-cycle_{cycle}.pth"))
-                    print(f"\nCheckpoint for cycle {cycle} saved.")
+                if epoch_results:
+                    def safe_avg(key: str) -> Optional[float]:
+                        values = [r.get(key) for r in epoch_results if r.get(key) is not None]
+                        numeric_values = [v for v in values if isinstance(v, (int, float))]
+                        return sum(numeric_values) / len(numeric_values) if numeric_values else None
 
-            # Save final model
-            checkpoint_dir = os.path.join(output_base_dir, 'checkpoints')
-            os.makedirs(checkpoint_dir, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(checkpoint_dir, f"{file_prefix}-final.pth"))
-            print(f"\nFinal checkpoint saved.")
+                    summary_parts = [
+                        f"Train Epoch {epoch} Summary:",
+                        f"Avg loss: {safe_avg('loss'):.4f}",
+                        f"Avg Accuracy: {safe_avg('accuracy'):.2f}%",
+                        f"Avg PI: {safe_avg('pi_score'):.4f}",
+                        f"Avg Surprise: {safe_avg('surprise'):.4f}",
+                    ]
+                    print(", ".join(filter(None, summary_parts)))
+                
+                all_train_results.extend(epoch_results)
 
-            plot_metrics(
-                step_metrics=metrics['step'],
-                epoch_metrics=metrics['epoch'],
-                output_dir=os.path.join(output_base_dir, 'img'),
-                file_prefix=file_prefix,
-                pilr_surprise_values=metrics.get('pilr_surprise'),
-                pilr_decisions=metrics.get('pilr_decisions'),
-                lr_mod_values=metrics.get('lr_mod'),
-                sigma_values=metrics.get('sigma'),
-                gating_lr_mod_values=metrics.get('gating_lr_mod'),
-                gating_sigma_values=metrics.get('gating_sigma'),
-                expert_lr_mod_values=metrics.get('expert_lr_mod'),
-                expert_sigma_values=metrics.get('expert_sigma'),
-                all_top_indices=metrics.get('all_top_indices'),
-                all_log_probs=metrics.get('all_log_probs'),
-            )
-            print(f"\nPlots saved to: {os.path.abspath(os.path.join(output_base_dir, 'img'))}")
-        finally:
-            sys.stdout = original_stdout
-            print(f"Training completed. Log saved to: {log_file_path}")
+                if epoch_results and any('active_expert_indices' in r for r in epoch_results):
+                    num_layers = model_config.get('depth', 1)
+                    num_experts = model_config.get('num_experts', 1)
 
-def main():
-    parser = argparse.ArgumentParser(description="Unified Training Runner for PILF, driven by schedule files.")
-    parser.add_argument('--schedule', type=str, required=True, help="Path to a schedule configuration file.")
-    parser.add_argument('--model-config', type=str, required=True, help="Path to a model configuration file.")
-    parser.add_argument('--checkpoint', type=str, default=None, help="Path to a model checkpoint to start from.")
+                    fig_scatter_active_epoch = plot_expert_scatter(epoch_results, num_layers, num_experts, 'active')
+                    writer.add_figure(f'Expert Dynamics/Epoch {epoch}/{task_name}/Active Experts Scatter', fig_scatter_active_epoch, global_step)
+                    plt.close(fig_scatter_active_epoch)
+
+                    fig_heatmap_active_epoch = plot_expert_heatmap(epoch_results, num_layers, num_experts, 'active')
+                    writer.add_figure(f'Expert Dynamics/Epoch {epoch}/{task_name}/Active Experts Heatmap', fig_heatmap_active_epoch, global_step)
+                    plt.close(fig_heatmap_active_epoch)
+
+                    if any('updated_expert_indices' in r for r in epoch_results):
+                        fig_scatter_updated_epoch = plot_expert_scatter(epoch_results, num_layers, num_experts, 'updated')
+                        writer.add_figure(f'Expert Dynamics/Epoch {epoch}/{task_name}/Updated Experts Scatter', fig_scatter_updated_epoch, global_step)
+                        plt.close(fig_scatter_updated_epoch)
+
+                        fig_heatmap_updated_epoch = plot_expert_heatmap(epoch_results, num_layers, num_experts, 'updated')
+                        writer.add_figure(f'Expert Dynamics/Epoch {epoch}/{task_name}/Updated Experts Heatmap', fig_heatmap_updated_epoch, global_step)
+                        plt.close(fig_heatmap_updated_epoch)
+
+            checkpoint_path = os.path.join(output_dir, "checkpoints", f"epoch_{global_step}.pth")
+            torch.save(model.state_dict(), checkpoint_path)
+            print(f"Checkpoint saved to {checkpoint_path}")
+
+    print("\n--- Final Validation ---")
+    for val_ds_name in schedule_config['val_datasets']:
+        _, test_dataset = get_dataset(val_ds_name, model_config['img_size'], model_config['patch_size'])
+        val_loader = DataLoader(test_dataset, batch_size=schedule_config['train_config']['batch_size'], shuffle=False)
+        avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau = validate(model, device, val_loader, loss_fn, pi_monitor, val_ds_name)
+        
+        writer.add_scalar(f'Validation/Loss/{val_ds_name}', avg_loss, global_step)
+        writer.add_scalar(f'Validation/Accuracy/{val_ds_name}', accuracy, global_step)
+        if avg_pi is not None: writer.add_scalar(f'Validation/PI_Score/{val_ds_name}', avg_pi, global_step)
+        if avg_surprise is not None: writer.add_scalar(f'Validation/Surprise/{val_ds_name}', avg_surprise, global_step)
+        if avg_tau is not None: writer.add_scalar(f'Validation/Tau/{val_ds_name}', avg_tau, global_step)
+        if avg_gating_tau is not None: writer.add_scalar(f'Validation/Gating_Tau/{val_ds_name}', avg_gating_tau, global_step)
+        val_logs[val_ds_name].append((global_step, accuracy))
+
+    final_model_path = os.path.join(output_dir, "checkpoints", f"epoch_{global_step}_final.pth")
+    torch.save(model.state_dict(), final_model_path)
+    print(f"Final model saved to {final_model_path}")
+
+    if all_train_results and any('active_expert_indices' in r for r in all_train_results):
+        num_layers = model_config.get('depth', 1)
+        num_experts = model_config.get('num_experts', 1)
+        img_dir = os.path.join(output_dir, "img")
+
+        fig_scatter_active = plot_expert_scatter(all_train_results, num_layers, num_experts, 'active')
+        fig_scatter_active.savefig(os.path.join(img_dir, "active_experts_scatter.png"))
+        writer.add_figure('Expert Dynamics/Active Experts Scatter', fig_scatter_active, global_step)
+        plt.close(fig_scatter_active)
+
+        fig_heatmap_active = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'active')
+        fig_heatmap_active.savefig(os.path.join(img_dir, "active_experts_heatmap.png"))
+        writer.add_figure('Expert Dynamics/Active Experts Heatmap', fig_heatmap_active, global_step)
+        plt.close(fig_heatmap_active)
+
+        if any('updated_expert_indices' in r for r in all_train_results):
+            fig_scatter_updated = plot_expert_scatter(all_train_results, num_layers, num_experts, 'updated')
+            fig_scatter_updated.savefig(os.path.join(img_dir, "updated_experts_scatter.png"))
+            writer.add_figure('Expert Dynamics/Updated Experts Scatter', fig_scatter_updated, global_step)
+            plt.close(fig_scatter_updated)
+
+            fig_heatmap_updated = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'updated')
+            fig_heatmap_updated.savefig(os.path.join(img_dir, "updated_experts_heatmap.png"))
+            writer.add_figure('Expert Dynamics/Updated Experts Heatmap', fig_heatmap_updated, global_step)
+            plt.close(fig_heatmap_updated)
+
+    writer.close()
+    print("Experiment finished.")
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run PILF training schedule.")
+    parser.add_argument('--schedule', type=str, required=True,
+                        help='Path to the schedule configuration file (e.g., schedules/marathon_v3.py)')
+    parser.add_argument('--model-config', type=str, required=True,
+                        help='Path to the model configuration file (e.g., configs/large_gpil_smk.py)')
+    parser.add_argument('--resume-from', type=str, default=None,
+                        help='Path to a checkpoint file to resume training from.')
+
     args = parser.parse_args()
 
-    # Load schedule config
-    schedule_spec = importlib.util.spec_from_file_location("schedule", args.schedule)
-    if schedule_spec is None or schedule_spec.loader is None: raise ImportError(f"Could not load schedule config from {args.schedule}")
-    schedule_module = importlib.util.module_from_spec(schedule_spec)
-    schedule_spec.loader.exec_module(schedule_module)
-    
-    # Load model config
-    model_spec = importlib.util.spec_from_file_location("model_config", args.model_config)
-    if model_spec is None or model_spec.loader is None: raise ImportError(f"Could not load model config from {args.model_config}")
-    model_config_module = importlib.util.module_from_spec(model_spec)
-    model_spec.loader.exec_module(model_config_module)
-
-    run_schedule(
-        schedule_module.schedule_config, 
-        model_config_module.model_config,
-        args.schedule,
-        args.model_config,
-        args.checkpoint
-    )
-
-if __name__ == "__main__":
-    main()
+    run_schedule(args.model_config, args.schedule, args.resume_from)

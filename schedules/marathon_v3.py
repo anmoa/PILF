@@ -8,13 +8,14 @@ schedule_config = {
         ('CIFAR10', 5),
         ('MNIST', 2),
         ('FashionMNIST', 3),
+        ('VALIDATE', 1),
     ],
     'train_config': {
         'batch_size': 1024,
         'accumulation_steps': 1,
         'learning_rate': 1e-3,
         'weight_decay': 1e-4,
-        'output_dir': 'output/ViT/marathon-v3',
+        'output_dir': 'output/marathon-v3',
     },
     'pi_config': {
         'alpha': 1.0,

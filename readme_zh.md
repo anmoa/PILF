@@ -6,7 +6,7 @@
 > 不仅要训练你的模型，更要理解它的心智。
 
 <p align="center">
-    <a href="docs/zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a> 
+    <a href="zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a> 
 </p>
 
 ---
@@ -48,20 +48,20 @@ graph LR
     OptimizerStep --> ModelUpdate["Model Update"]
 ```
 
-### 阶段一：PILR-S (预测完整性驱动的学习率调度器)
+### 阶段一：PILR-S (预测完整性学习率调度器)
 
 这是 PILF 思想在**任何标准神经网络**上的直接应用。它只关注一个问题：**如何根据 `Surprise` 动态调整学习率？**
 
 - **核心机制**: `effective_lr = base_lr * f(Surprise)`。它取代了传统的学习率调度器，通过一个高斯函数 `exp(-0.5 * ((surprise - mu) / sigma)^2)` 计算出一个平滑的调制因子 `lr_modifier`，动态缩放学习率。
-- **PISA (预测完整性驱动的 σ 自适应器)**: PILR-S 的核心增强。它将高斯函数中的标准差 `sigma` 从一个固定的超参数转变为一个动态的、自适应的状态变量。`sigma` 的值由 `Surprise` 的二阶统计量（指数移动方差）动态决定，使得模型能够根据所处环境的“混乱程度”自适应地调整其学习的“容忍度”或“开放性”。
-- **配置灵活性**: 在当前实现中，通过在配置文件中设置 `beta=0`，可以固定 `sigma`，使 PISA 的行为回退到等效的 PILR-S 模式，这对于最大化特定任务的学习效率非常关键。
+- **PILR-D (σ自适应的预测完整性学习率调度器)**: PILR-S 的核心增强。它将高斯函数中的标准差 `sigma` 从一个固定的超参数转变为一个动态的、自适应的状态变量。`sigma` 的值由 `Surprise` 的二阶统计量（指数移动方差）动态决定，使得模型能够根据所处环境的“混乱程度”自适应地调整其学习的“容忍度”或“开放性”。
+- **配置灵活性**: 在当前实现中，通过在配置文件中设置 `beta=0`，可以固定 `sigma`，使 PILR-D 的行为回退到等效的 PILR-S 模式，这对于最大化特定任务的学习效率非常关键。
 
 ```mermaid
 sequenceDiagram
     participant Trainer
     participant Model
     participant SigmaPI_Monitor
-    participant LRScheduler as PISA/PILR-S
+    participant LRScheduler as PILR-D/PILR-S
     participant Optimizer
 
     Trainer->>Model: 前向传播
@@ -84,7 +84,7 @@ sequenceDiagram
     Trainer->>Optimizer: 恢复 base_lr
 ```
 
-### 阶段二：PIL-MoE (线性门控 MoE) - [已废弃]
+### 阶段二：LinearMoE (线性门控 MoE) - [已废弃]
 
 此阶段尝试将 PILR-S 应用于标准的 Mixture-of-Experts (MoE) 架构，该架构使用一个简单的线性层作为门控网络。
 
@@ -92,7 +92,7 @@ sequenceDiagram
   1. **功能分区不显著**: 线性门控过于简单，难以引导专家形成稳定、清晰的功能特化。
   2. **门控网络的灾难性遗忘**: 门控网络本身作为一个小型神经网络，同样遭受灾难性遗忘的困扰。在学习新任务后，它会忘记如何将旧任务的数据路由到正确的专家，导致整个模型性能崩溃。
 
-### 阶段三：GPIL-MoE (高斯路由 MoE) - [当前阶段]
+### 阶段三：GaussMoE (高斯路由 MoE) - [当前阶段]
 
 为了解决线性门控的根本缺陷，我们引入了**高斯路由 (Gaussian Routing)**，这是当前研究的核心。
 
@@ -128,14 +128,14 @@ graph LR
 **当前成果与机制优势:**
 
 1. **显著的功能分化**: 高斯路由成功地引导了专家网络的自发功能分化。实验（见 `marathon-v3` 系列）清晰地显示，在多任务学习中，不同专家形成了针对特定数据集（如 MNIST vs CIFAR10）的稳定“知识领域”。
-2. **一步排演 (1-Step Rehearsal)**: GPIL-MoE 展现了出色的抗遗忘能力。由于功能分化，模型在重新接触旧任务时，只需极少量的“排演”（如一个 epoch），就能迅速重新激活相关专家的知识。这标志着向真正的持续学习迈出了重要一步。
-3. **神经达尔文主义剪枝 (Surprise-Min-K)**: 这是对高斯路由的进一步增强，继承并超越了早期 GBP 的思想。在 `top-k` 专家被激活后，系统会计算每个专家的 `Surprise`，并仅保留 `Surprise` 最低的 `min_k` 个专家进行更新。这加速了功能收敛，并强制模型依赖最“自信”的专家，实现了更精细的资源分配和更强的知识巩固。
+2. **一步排演 (1-Step Rehearsal)**: GaussMoE 展现了出色的抗遗忘能力。由于功能分化，模型在重新接触旧任务时，只需极少量的“排演”（如一个 epoch），就能迅速重新激活相关专家的知识。这标志着向真正的持续学习迈出了重要一步。
+3. **神经达尔文主义剪枝 (SMK)**: 这是对高斯路由的进一步增强，继承并超越了早期 GBP 的思想。在 `top-k` 专家被激活后，系统会计算每个专家的 `Surprise`，并仅保留 `Surprise` 最低的 `min_k` 个专家进行更新。这加速了功能收敛，并强制模型依赖最“自信”的专家，实现了更精细的资源分配和更强的知识巩固。
 
 **局限性：尚未根除的灾难性遗忘**
 
-尽管高斯路由通过功能分化显著**缓解**了灾难性遗忘，但它并**没有完全解决**这个问题。专家的“知识领域”（即其高斯分布的均值 `μ` 和标准差 `σ`）本身仍然是可训练的参数，在学习新任务时，它们依然会受到新数据分布的干扰而发生“漂移”。这就是为什么在未来的 G²PILD-MoE 阶段，我们必须引入一个并行的**生成式记忆系统**（如 GAN），通过“梦境排演”来主动巩固和校准这些知识领域，从而实现真正的持续学习。
+尽管高斯路由通过功能分化显著**缓解**了灾难性遗忘，但它并**没有完全解决**这个问题。专家的“知识领域”（即其高斯分布的均值 `μ` 和标准差 `σ`）本身仍然是可训练的参数，在学习新任务时，它们依然会受到新数据分布的干扰而发生“漂移”。这就是为什么在未来的 GenGaussMoE-D 阶段，我们必须引入一个并行的**生成式记忆系统**（如 GAN），通过“梦境排演”来主动巩固和校准这些知识领域，从而实现真正的持续学习。
 
-### 阶段四：G²PILD-MoE (生成式高斯路由动态 MoE) - [未来方向]
+### 阶段四：GenGaussMoE-D (动态高斯路由 MoE) - [未来方向]
 
 此阶段的目标是实现一个完全自适应的认知系统。
 
@@ -144,7 +144,7 @@ graph LR
 
 ```mermaid
 graph LR
-    subgraph FutureWork [未来工作: G²PILD-MoE]
+    subgraph FutureWork [未来工作: GenGaussMoE-D]
         direction TB
 
         subgraph DynamicK [动态 Top-K]
@@ -193,7 +193,7 @@ uv pip install -e .[dev]
 | 脚本       | 主要目的           | 示例命令                                                                                         |
 | :--------- | :----------------- | :----------------------------------------------------------------------------------------------- |
 | `train.py` | 运行所有类型的实验 | `python train.py --schedule <schedule_path> --model-config <model_config_path>`                  |
-| `train.py` | 运行马拉松复习实验 | `python train.py --schedule schedules/marathon_v3.py --model-config configs/large_gpil_mnist.py` |
+| `train.py` | 运行马拉松复习实验 | `python train.py --schedule schedules/marathon_v3.py --model-config configs/GaussMoE.py` |
 
 ---
 
