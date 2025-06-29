@@ -1,14 +1,24 @@
 # Predictive Integrity Learning Framework (PILF)
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dmf-archive/PILF)
+
 > "Don't just train your model, understand its mind."
 
 <p align="center">
-  <a href="./readme.md">English</a> | <a href="readme_ZH.md">中文</a> | <a href="zoo.md">Model Zoo (EN)</a> | <a href="zoo_zh.md">模型动物园 (ZH)</a>
+    <a href="zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
 </p>
 
 ---
 
-Core Concept: A cognitive learning framework designed to transform fixed hyperparameters (e.g., learning rate, model capacity) into dynamic strategies driven by the intrinsic "Surprise" of data. It is essentially an adaptive hyperparameter scheduling algorithm that allows the model to autonomously decide "how much to learn" and "how much capacity to use" based on the value of the learning content. This framework originates from the IPWT (Integrated Predictive Workspace Theory), with related paper information available at <https://github.com/dmf-archive/IPWT>
+**PILF** is a cognitive learning framework designed to transform fixed hyperparameters (e.g., learning rate, model capacity) into dynamic strategies driven by the intrinsic "Surprise" of data.
+
+It is essentially an adaptive hyperparameter scheduling algorithm that allows the model to:
+
+- **Perceive Value**: Evaluate the learning value of each data batch in real-time.
+- **Decide Autonomously**: Based on this value, decide "how much to learn" (learning rate) and "with how much capacity" (model capacity).
+
+The technical and theoretical foundation of this framework is **[IPWT (Integrated Predictive Workspace Theory)](https://github.com/dmf-archive/IPWT)**.
 
 ## 1. Design Philosophy: From "Fixed Rules" to "Dynamic Strategies"
 
@@ -16,18 +26,18 @@ Traditional training paradigms rely on manually set hyperparameters that are typ
 
 PILF's design philosophy is: **to replace static, human-set rules with dynamic, data-driven strategies.**
 
-It no longer blindly uses a fixed learning rate or fixed model capacity, but instead dynamically and proportionally adjusts its learning behavior by real-time evaluating the `Surprise` brought by each batch of data:
+It no longer blindly uses a fixed learning rate or fixed model capacity, but instead dynamically and proportionally adjusts its learning behavior by real-time evaluating the `Surprise` brought by each batch of data.
 
-1. **Dynamic Learning Rate**: When `Surprise` is moderate, it means valuable "learnable" information has been encountered, and the system will allocate a higher learning rate; when `Surprise` is too low (redundant information) or too high (anomalous information), a learning rate close to zero will be allocated, thereby naturally achieving the effects of "ignoring" and "rejecting." **This directly replaces manually set learning rate schedulers.**
-2. **Dynamic Capacity**: In the MoE architecture, `Surprise` not only regulates the learning rate but also determines the number of "experts" `k` that need to be activated. Simple tasks (low `Surprise`) require only a few experts, while complex tasks (high `Surprise`) will dynamically mobilize more experts to participate. **This replaces fixed Top-K routing.**
+## 2. Core Implementation: The Evolution Roadmap of PILF
 
-## 2. Core Implementation: Evolution Stages of PILF
+The evolution of PILF is divided into several stages, each building upon the previous one to achieve progressively more advanced adaptive capabilities.
 
-The evolution of PILF is divided into five main stages, each building upon the previous one, gradually achieving more advanced adaptive capabilities:
+### Stage 0: MoE-GBP (Gated Backpropagation) - [Deprecated]
 
-### Stage Zero: MoE-GBP (Gated Backpropagation)
+As the conceptual predecessor to PILF, GBP (Gated Backpropagation) first validated the effectiveness of selective learning based on the `Surprise` metric. It used a simple binary gate signal to decide whether to execute `optimizer.step()`, thereby applying a "hard" suppression to high-`Surprise` updates that could be detrimental.
 
-In traditional training, selective weight updates are performed through a gating mechanism to mitigate catastrophic forgetting. The execution of `optimizer.step()` is controlled by a binary gating signal based on the `Surprise` metric. As a precursor to PILF, it validated the effectiveness of selective learning based on PI, laying the foundation for subsequent dynamic learning rate and capacity scheduling.
+- **Problems Encountered**: This "all-or-nothing" gating was too coarse to allow for smooth, proportional regulation of cognitive resources.
+- **Evolutionary Path**: Its core idea of selective updating has been inherited and enhanced by the more refined `Surprise-Min-K` mechanism.
 
 ```mermaid
 graph LR
@@ -38,158 +48,125 @@ graph LR
     OptimizerStep --> ModelUpdate["Model Update"]
 ```
 
-### Stage One: PILR-S (Predictive Integrity Learning Rate Scheduler)
+### Stage 1: PILR-S (Predictive Integrity-driven Learning Rate Scheduler)
 
-PILR-S is the direct application of the PILF idea to **any standard neural network**. It focuses on one question: **How to dynamically adjust the learning rate based on `Surprise`?** This is achieved through the core computational toolkit [SigmaPI](https://github.com/dmf-archive/SigmaPI), which is a necessary dependency for this project. Details of the PILF testing framework and experiments can be found in Section 3.
+This is the direct application of the PILF concept to **any standard neural network**. It focuses on a single question: **How to dynamically adjust the learning rate based on `Surprise`?**
 
-It replaces the traditional "gating" logic of whether `optimizer.step()` is executed, evolving into a smooth, continuous learning rate modulator.
+- **Core Mechanism**: `effective_lr = base_lr * f(Surprise)`. It replaces traditional learning rate schedulers by using a Gaussian function, `exp(-0.5 * ((surprise - mu) / sigma)^2)`, to calculate a smooth modulation factor, `lr_modifier`, which dynamically scales the learning rate.
+- **PISA (Predictive Integrity-driven Sigma Adaptor)**: The key enhancement to PILR-S. It transforms the standard deviation, `sigma`, in the Gaussian function from a fixed hyperparameter into a dynamic, adaptive state variable. The value of `sigma` is dynamically determined by the second-order statistics (exponential moving variance) of `Surprise`, enabling the model to adapt its learning "tolerance" or "openness" based on the "chaotic level" of its environment.
+- **Configuration Flexibility**: In the current implementation, setting `beta=0` in the configuration file fixes `sigma`, causing PISA to revert to an equivalent PILR-S mode. This is crucial for maximizing learning efficiency on specific tasks.
 
 ```mermaid
 sequenceDiagram
     participant Trainer
     participant Model
     participant SigmaPI_Monitor
-    participant LRScheduler as PILR-S
+    participant LRScheduler as PISA/PILR-S
     participant Optimizer
 
-    Trainer->>Model: Forward Propagation (Feedforward)
+    Trainer->>Model: Forward Pass
     Model-->>Trainer: Return logits
 
     Trainer->>SigmaPI_Monitor: calculate(model, logits)
-    SigmaPI_Monitor-->>Trainer: Return pi_metrics (including Surprise)
+    SigmaPI_Monitor-->>Trainer: Return pi_metrics (with Surprise)
 
     Trainer->>LRScheduler: update(Surprise)
     activate LRScheduler
-    LRScheduler->>LRScheduler: lr_modifier = gaussian(Surprise, EMA, std)
+    LRScheduler->>LRScheduler: Adaptively adjust mu and sigma
+    LRScheduler->>LRScheduler: lr_modifier = gaussian(Surprise, mu, sigma)
     LRScheduler-->>Trainer: Return lr_modifier
     deactivate LRScheduler
 
     Trainer->>Trainer: Calculate loss & loss.backward()
-    
+
     Trainer->>Optimizer: Set effective_lr = base_lr * lr_modifier
     Trainer->>Optimizer: step()
     Trainer->>Optimizer: Restore base_lr
 ```
 
-**Mechanism Details:**
+### Stage 2: PIL-MoE (Linear-Gated MoE) - [Deprecated]
 
-1. **`Surprise` Calculation**: Currently, we use the backpropagation gradient norm for calculation, but in the future, Forward Forward accumulated gradients could be considered as a source of surprise. This process does not require waiting for expensive backpropagation, enabling rapid assessment of learning value.
-2. **Dynamic Modulation**: The PILR-S module receives `Surprise` and calculates a smooth modulation factor `lr_modifier` (ranging from 0 to 1) using a Gaussian function `exp(-0.5 * ((surprise - mu) / sigma)^2)` based on its relationship with the Exponential Moving Average (EMA) and standard deviation (std) of `Surprise`.
-3. **Weight Update**: After `lr_modifier` is calculated, standard `loss.backward()` is executed. Subsequently, the `optimizer` uses `effective_lr = base_lr * lr_modifier` to perform weight updates. `optimizer.step()` **is always executed**, but its update magnitude has been dynamically scaled by `Surprise` beforehand.
+This stage attempted to apply PILR-S to a standard Mixture-of-Experts (MoE) architecture that used a simple linear layer as its gating network.
 
-### Stage Two: PIL-MoE (Predictive Integrity-driven Learning Mixture of Experts - Static Top-K)
+- **Problems Encountered**:
+  1. **Lack of Significant Functional Specialization**: The linear gate was too simple to guide the experts toward developing stable and distinct functional specializations.
+  2. **Catastrophic Forgetting in the Gating Network**: The gating network, being a small neural network itself, also suffered from catastrophic forgetting. After learning a new task, it would forget how to route data from old tasks to the correct experts, leading to a collapse in the entire model's performance.
 
-**Goal:** Introduce PILR-S's dynamic learning rate mechanism into the MoE architecture, combined with static Top-K hard routing, while only updating the weights of activated experts.
+### Stage 3: GPIL-MoE (Gaussian-Routed MoE) - [Current Stage]
 
-**Core Mechanism:** `effective_lr = base_lr * f(Surprise)` is applied to the MoE architecture. The gating network routes tasks to experts based on a static Top-K value, and only the weights of activated experts are updated.
+To address the fundamental flaws of linear gating, we introduced **Gaussian Routing**, which is the core of our current research.
 
-**Advantages:** Introduces data-driven learning rates in the MoE architecture, while improving training efficiency through selective updates and laying the foundation for subsequent dynamic capacity allocation.
+**Core Mechanism: Experts as Distributions, Routing as Probability**
 
-```mermaid
-graph LR
-    Input --> InitialSurprise["Initial Surprise Assessment"]
-    
-    subgraph DynamicPolicy [Surprise-Driven Dynamic Policy]
-        direction LR
-        InitialSurprise -- "f(Surprise)" --> lr_mod_Value["lr_mod = f(S)"]
-    end
-
-    StaticK["Static Top-K"] --> HierarchicalGatingNetwork["Hierarchical Gating (route to k experts)"]
-    HierarchicalGatingNetwork --> MicroExpertPool[...]
-    
-    MicroExpertPool --> Aggregator
-    Aggregator --> Logits
-
-    Logits --> LossCalculation
-    LossCalculation -- Gradients --> SelectiveUpdate
-
-    subgraph SelectiveUpdate [Selective Update Module]
-        direction LR
-        lr_mod_Value --> SetLR["Set effective_lr"]
-        SetLR --> OptimizerStep["Optimizer.step()"]
-    end
-    
-    OptimizerStep -- Updates only active experts & gating --> FinalModel
-```
-
-### Stage Three: PILD-MoE (Predictive Integrity-driven Dynamic Mixture of Experts)
-
-**Goal:** Achieve a fully adaptive cognitive system where `Surprise` not only regulates the learning rate but also dynamically scales the number of activated experts `k`.
-
-**Core Mechanism:** `k = g(Surprise)` and `effective_lr = base_lr * f(Surprise)` operate in parallel. The model dynamically adjusts the number of activated experts and learning intensity based on data complexity.
-
-**Advantages:** Maximizes computational efficiency and model capacity scalability, truly achieving on-demand allocation of computational resources.
-
-```mermaid
-graph LR
-    Input --> InitialSurprise["Initial Surprise"]
-    InitialSurprise --> k_Value["k = g(Surprise)"]
-    InitialSurprise --> lr_mod_Value["lr_mod = f(Surprise)"]
-    k_Value --> GatingNetwork["Dynamic Gating (route to k experts)"]
-    GatingNetwork --> Experts["Active Experts"]
-    Experts --> LossCalculation
-    LossCalculation --> SelectiveUpdate["Selective Update (active experts)"]
-    lr_mod_Value --> SelectiveUpdate
-    SelectiveUpdate --> FinalModel["Model Update"]
-```
-
-### Stage Four: G²PIL (Generative Gaussian Predictive Integrity Learning) 
-
-**Goal:** Build a fully self-organizing, self-consolidating, and self-evolving cognitive architecture to achieve the ultimate leap from "passive learning" to "active creation." We are currently in the early stages of this phase, focusing on implementing its core routing mechanism.
-
-**Core Mechanism (Current Implementation): Proto-Routing**
-
-We have replaced the traditional linear gating with a prototype-based routing mechanism, which is the first step towards G²PIL.
-
-1. **Expert Prototypes**: Each expert has a learnable "prototype" vector in a shared embedding space, representing its "knowledge domain."
-2. **Input Probe**: The embedding of the input token serves directly as a "probe."
-3. **Routing as Matching**: The routing process involves calculating the cosine similarity between the probe and all prototypes.
-4. **Soft Decision, Sparse Update**:
-    * **Forward Pass (Soft Decision)**: `softmax` is used to convert similarity scores into weights. The final output is a weighted sum of **all** expert outputs, ensuring a smooth gradient flow.
-    * **Backward Pass (Sparse Update)**: Only the weights of the `top-k` most similar experts (including their MLP layers and prototype vectors) are updated, forcing experts to form functional partitions and facilitating knowledge consolidation.
+1. **Experts as Distributions**: Each expert is no longer a simple MLP but is defined by a learnable Gaussian distribution (parameterized by a mean `μ` and a log standard deviation `log_sigma`) in the input space, representing its "domain of knowledge."
+2. **Routing as Probability Calculation**: The routing process is no longer a simple linear mapping but involves calculating the log probability density of the input `x` under each expert's Gaussian distribution. This probability directly reflects how well the input matches the expert's "domain of knowledge," fundamentally addressing the issue of gate forgetting.
+3. **Sparse Update**: During backpropagation, only the weights of the `top-k` experts to which the input was routed are updated (including their MLP layers and Gaussian distribution parameters `μ` and `log_sigma`).
 
 ```mermaid
 graph LR
     subgraph InputProcessing [ ]
         direction LR
-        Input --> Probe["Input as Probe (Token Embedding)"]
+        Input_X["Input x"]
     end
 
-    subgraph Routing [Proto-Routing]
+    subgraph Routing [Gaussian Routing]
         direction LR
-        Probe -- "Cosine Similarity" --> Similarity["Similarity Scores"]
-        Prototypes["Expert Prototypes"] -- "Cosine Similarity" --> Similarity
+        Input_X -- "Calculate Log Probability Density" --> LogProbs["Log Probs = log(P(x|μ_i, σ_i))"]
+        ExpertGaussians["Expert Gaussians (μ_i, σ_i)"] -- "Calculate Log Probability Density" --> LogProbs
     end
 
     subgraph ExpertExecution [ ]
         direction LR
-        Similarity -- Softmax --> Weights
-        Weights -- "Weighted Sum" --> ExpertOutputs["Σ(w_i * Expert_i(x))"]
-        ExpertOutputs --> FinalOutput["Final Output"]
-    end
-    
-    subgraph SparseUpdate [Sparse Gradient Update]
-        direction LR
-        Similarity -- top-k --> ActiveIndices["Top-k Indices"]
-        ActiveIndices --> GradientMask["Generate Gradient Mask"]
-        GradientMask -- "Apply to" --> ExpertGradients["Expert Gradients"]
-        GradientMask -- "Apply to" --> PrototypeGradients["Prototype Gradients"]
+        LogProbs -- top-k --> ActiveExperts["Activate Top-k Experts"]
+        ActiveExperts -- "Process input x" --> ExpertOutputs
+        ExpertOutputs -- "Weighted Sum" --> FinalOutput
     end
 
     InputProcessing --> Routing --> ExpertExecution
-    Routing --> SparseUpdate
 ```
 
-**Future Directions (The Full Vision of G²PIL):**
+**Current Achievements and Advantages:**
 
-1. **Gaussian Field Cognitive Space**:
-    * Upgrade discrete prototype vectors to Gaussian probability distributions for smoother, more robust probabilistic routing.
-2. **Generative Memory Consolidation**:
-    * Introduce a parallel generative model to produce synthetic data for "dream rehearsals," to counter catastrophic forgetting and enable self-consolidation of knowledge.
+1. **Significant Functional Specialization**: Gaussian routing has successfully induced spontaneous functional specialization among the expert networks. Experiments (see the `marathon-v3` series) clearly show that in multi-task learning, different experts develop stable "knowledge domains" for specific datasets (e.g., MNIST vs. CIFAR10).
+2. **1-Step Rehearsal**: GPIL-MoE demonstrates excellent resistance to catastrophic forgetting. Thanks to functional specialization, when the model re-encounters an old task, it can quickly reactivate the relevant experts' knowledge with a minimal amount of "rehearsal" (e.g., a single epoch). This marks a significant step toward true continual learning.
+3. **Neural Darwinism Pruning (Surprise-Min-K)**: This is a further enhancement to Gaussian routing, inheriting and surpassing the ideas of early GBP. After the `top-k` experts are activated, the system calculates the `Surprise` for each expert and retains only the `min_k` experts with the lowest `Surprise` for updating. This accelerates functional convergence and forces the model to rely on its most "confident" experts, achieving finer-grained resource allocation and stronger knowledge consolidation.
+
+**Limitation: Catastrophic Forgetting Not Yet Eradicated**
+
+Although Gaussian routing significantly **mitigates** catastrophic forgetting through functional specialization, it does **not completely solve** the problem. The experts' "knowledge domains" (i.e., their Gaussian parameters `μ` and `σ`) are still trainable and can "drift" when interfered with by new data distributions. This is why in the future G²PILD-MoE stage, we must introduce a parallel **generative memory system** (e.g., a GAN) to actively consolidate and calibrate these knowledge domains through "dream rehearsal," thereby achieving true continual learning.
+
+### Stage 4: G²PILD-MoE (Generative Gaussian-Routed Dynamic MoE) - [Future Direction]
+
+The goal of this stage is to achieve a fully adaptive cognitive system.
+
+- **Core Mechanism 1: Dynamic Top-K**: `k = g(Surprise)`. `Surprise` will not only regulate the learning rate but also dynamically scale the number of activated experts, `k`. Simple tasks will require fewer experts, while complex tasks will dynamically mobilize more, achieving on-demand allocation of computational resources.
+- **Core Mechanism 2: Generative Memory Consolidation**: Introduce a parallel generative model (e.g., GAN) to produce synthetic data for "dream rehearsal," actively combating catastrophic forgetting and enabling self-consolidation of knowledge to build the final G²PIL architecture.
+
+```mermaid
+graph LR
+    subgraph FutureWork [Future Work: G²PILD-MoE]
+        direction TB
+
+        subgraph DynamicK [Dynamic Top-K]
+            Input --> Surprise["Initial Surprise"]
+            Surprise --> k_Value["k = g(Surprise)"]
+            k_Value --> DynamicGating["Dynamic Gaussian Routing (route to k experts)"]
+        end
+
+        subgraph GenerativeConsolidation [Generative Consolidation]
+            direction LR
+            GenerativeModel["Generator (GAN)"] -- "Generate Synthetic Data" --> RehearsalBuffer["'Dream' Rehearsal"]
+            RehearsalBuffer --> DynamicGating
+        end
+
+        DynamicK --> ExpertExecution2["Expert Execution"]
+        GenerativeConsolidation --> ExpertExecution2
+    end
+```
 
 ## 3. Installation and Usage
 
-This project relies on the `sigma-pi` package for core computations. To reproduce experiments and use the full testing framework, you must first clone this repository.
+This project relies on the `sigma-pi` package for core computations. To reproduce experiments and use the full framework, you must first clone this repository.
 
 ```bash
 git clone https://github.com/dmf-archive/PILF.git
@@ -203,55 +180,37 @@ cd PILF
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-After setting up PyTorch, install the testing framework dependencies:
+After setting up PyTorch, install the framework's dependencies:
 
 ```bash
-pip install -e .[dev]
+uv pip install -e .[dev]
 ```
 
-The testing framework is modular and configuration-driven.
+### 3.1. Running Experiments
 
-### 3.1. Configure Your Experiment
+All experiments are launched from the root directory using the `train.py` script, which is driven by a **schedule file** and a **model configuration file**.
 
-Create or modify a configuration file in the `configs/` directory. For example, `configs/base_vit.py`:
-
-```python
-# test/configs/base_vit.py
-
-# Model Parameters
-model_config = {
-    'model_type': 'base',
-    'embed_dim': 128,
-    'depth': 6,
-    # ... Other model parameters
-}
-
-# Training Parameters
-train_config = {
-    'epochs': 20,
-    'batch_size': 256,
-    # ... Other training parameters
-}
-```
-
-### 3.2. Run Experiments
-
-Launch experiments from the root directory using the `run_experiment.py` script:
-
-```bash
-python run_experiment.py --config configs/base_vit.py
-```
-
-To run other variants, simply point to their respective configuration files:
-
-```bash
-# Run MoE-ViT experiment
-python run_experiment.py --config configs/moe_vit.py
-
-# Run PILR-S-MoE-ViT experiment
-python run_experiment.py --config configs/gbp_moe_vit.py
-```
+| Script     | Main Purpose                        | Example Command                                                                                  |
+| :--------- | :---------------------------------- | :----------------------------------------------------------------------------------------------- |
+| `train.py` | Run all types of experiments        | `python train.py --schedule <schedule_path> --model-config <model_config_path>`                  |
+| `train.py` | Run a marathon rehearsal experiment | `python train.py --schedule schedules/marathon_v3.py --model-config configs/large_gpil_mnist.py` |
 
 ---
+
+## 4. Citation
+
+If you use this project in your research, please cite it as follows:
+
+```bibtex
+@misc{pilf,
+  author       = {Rui, L.},
+  title        = {{PILF: Predictive Integrity Learning Framework}},
+  year         = {2025},
+  publisher    = {GitHub},
+  url          = {https://github.com/dmf-archive/PILF}
+}
+```
+
+## 5. License
 
 This project is licensed under the AGPLv3 License. See the `LICENSE` file for details.

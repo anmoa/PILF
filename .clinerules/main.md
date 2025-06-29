@@ -2,24 +2,29 @@
 
 我们的核心目标是构建一个先进的、受认知科学启发的模型训练与分析框架。更多信息可查看 [PILF.md](./PILF.md)
 
-## 2. 项目结构
+## 2. 框架核心组件
 
-```plain
-PILF/
-├── configs/      # 存放所有模型的架构配置文件
-├── schedules/    # 存放所有实验的调度配置文件
-├── models/       # 模型定义的包
-│   ├── __init__.py
-│   ├── base_vit.py
-│   ├── moe_vit.py
-│   └── gpil_moe.py
-├── utils/        # 训练、验证、绘图等辅助工具
-│   ├── __init__.py
-│   ├── plotting.py
-│   ├── strategies.py
-│   └── training.py
-└── train.py      # 由调度+架构驱动的运行器
-```
+当前框架中可组合的模块，这定义了我们实验的“基因库”。
+
+- **模型架构**
+  - `Dense` (基线 ViT): 标准的 Vision Transformer。
+  - `MoE` (线性门控): `MoELayer` 使用 `nn.Linear` 进行门控。
+  - `GPIL-MoE` (高斯路由): `GaussianMoELayer` 使用高斯分布进行路由。
+  - `GPILD-MoE` (动态高斯): 计划中，将实现动态 `top_k`。
+  - `G2PILD-MoE`(生成对抗高斯): 计划中，将实现生成式自我巩固。
+- **学习率调度**
+  - `固定 LR`: 默认行为，不使用任何调度器。
+  - `PILR-S` (固定 Sigma): 通过在配置中设置 `beta=0` 实现。
+  - `PISA` (自适应 Sigma): `PisaAdaptor` 动态调整 `sigma`，支持单/双模式。
+- **前向路由策略**
+  - `Linear Top-K`: 简单的线性层 + Top-K。
+  - `Gaussian Top-K`: 基于输入与专家高斯分布的匹配度进行路由。
+  - `Gaussian Top-K with PISA`: 对 OOD 输入动态抑制高置信度但低匹配度的专家。
+- **反向更新策略**
+  - `Standard` (全量更新): 对所有参数执行梯度下降。
+  - `Selective` (稀疏更新): 仅更新被激活的 Top-K 专家的权重。
+  - `Surprise-Min-K`: 在**所有专家**中，仅更新 Surprise 最低的 Min-K 个。
+  - `Surprise-Act-Min-K`: 在**所有激活专家**中，仅更新 Surprise 最低的 Min-K 个。
 
 ## 3. 工程准则
 
