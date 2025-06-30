@@ -1,4 +1,5 @@
 from typing import Any, Dict
+
 import torch.nn as nn
 
 from .base_vit import VisionTransformer

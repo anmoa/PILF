@@ -9,16 +9,16 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from utils.pi_calculator import PiCalculator
 
+import models
 from utils.config import load_config
 from utils.datasets import get_dataset
 from utils.optimizers import create_optimizer
-from utils.plotting import plot_expert_scatter
+from utils.pi_calculator import PiCalculator
+from utils.plotting import plot_expert_scatter, plot_expert_heatmap
 from utils.strategies import create_strategy_pipeline
 from utils.training import Trainer
 from utils.types import StepResult
-import models
 
 tensorboard_process: Optional[subprocess.Popen[bytes]] = None
 
@@ -53,7 +53,7 @@ def run_schedule(
     model = models.create_model(config.model).to(device)
     optimizer = create_optimizer(model, config.schedule['train_config'])
     loss_fn = nn.CrossEntropyLoss()
-    pi_monitor = PiCalculator(device=device, **config.schedule['pi_config'])
+    pi_monitor = PiCalculator(device=str(device), **config.schedule['pi_config'])
     strategy_components = create_strategy_pipeline(config.train_strategy['strategies'], device, config.pilr)
 
     # --- 4. Tensorboard and Logging ---
@@ -114,7 +114,7 @@ def run_schedule(
                 for val_ds_name in config.schedule['val_datasets']:
                     _, test_dataset = get_dataset(val_ds_name, config.model['img_size'], config.model['patch_size'])
                     val_loader = DataLoader(test_dataset, batch_size=config.schedule['train_config']['batch_size'], shuffle=False)
-                    avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_selection_accuracy = trainer.validate(val_loader, val_ds_name)
+                    avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_loss = trainer.validate(val_loader, global_step, val_ds_name)
                     
                     writer.add_scalar(f'Validation/Loss/{val_ds_name}', avg_loss, global_step)
                     writer.add_scalar(f'Validation/Accuracy/{val_ds_name}', accuracy, global_step)
@@ -126,8 +126,8 @@ def run_schedule(
                         writer.add_scalar(f'Validation/Tau/{val_ds_name}', avg_tau, global_step)
                     if avg_gating_tau is not None:
                         writer.add_scalar(f'Validation/Gating_Tau/{val_ds_name}', avg_gating_tau, global_step)
-                    if avg_gating_selection_accuracy is not None:
-                        writer.add_scalar(f'Validation/Gating_Selection_Accuracy/{val_ds_name}', avg_gating_selection_accuracy, global_step)
+                    if avg_gating_loss is not None:
+                        writer.add_scalar(f'Validation/Gating_Loss/{val_ds_name}', avg_gating_loss, global_step)
                     val_logs[val_ds_name].append((global_step, accuracy))
                 continue
 
@@ -162,7 +162,7 @@ def run_schedule(
     for val_ds_name in config.schedule['val_datasets']:
         _, test_dataset = get_dataset(val_ds_name, config.model['img_size'], config.model['patch_size'])
         val_loader = DataLoader(test_dataset, batch_size=config.schedule['train_config']['batch_size'], shuffle=False)
-        avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_selection_accuracy = trainer.validate(val_loader, val_ds_name)
+        avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_loss = trainer.validate(val_loader, global_step, val_ds_name)
         writer.add_scalar(f'Validation/Loss/{val_ds_name}', avg_loss, global_step)
         writer.add_scalar(f'Validation/Accuracy/{val_ds_name}', accuracy, global_step)
         if avg_pi is not None:
@@ -173,8 +173,8 @@ def run_schedule(
             writer.add_scalar(f'Validation/Tau/{val_ds_name}', avg_tau, global_step)
         if avg_gating_tau is not None:
             writer.add_scalar(f'Validation/Gating_Tau/{val_ds_name}', avg_gating_tau, global_step)
-        if avg_gating_selection_accuracy is not None:
-            writer.add_scalar(f'Validation/Gating_Selection_Accuracy/{val_ds_name}', avg_gating_selection_accuracy, global_step)
+        if avg_gating_loss is not None:
+            writer.add_scalar(f'Validation/Gating_Loss/{val_ds_name}', avg_gating_loss, global_step)
 
     final_model_path = os.path.join(output_dir, "checkpoints", f"epoch_{global_step}_final.pth")
     torch.save(model.state_dict(), final_model_path)

@@ -1,18 +1,18 @@
-from typing import Dict, List, Optional, Sized, Tuple, cast
+from typing import Any, Dict, List, Optional, Sized, Tuple, cast
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
-from utils.pi_calculator import PiCalculator
-from utils.gating_loss import GatingSelectionAccuracyLoss
-from utils.strategies import StrategyComponent, SurpriseMinKStrategy
-from utils.metrics import calculate_gating_selection_accuracy
+from utils.gating_loss import GatingSelectionLoss
 from utils.logging import TensorBoardLogger
+from utils.pi_calculator import PiCalculator
+from utils.strategies import StrategyComponent, SurpriseMinKStrategy
 from utils.types import StepResult, ValidationResult
+
 
 class Trainer:
     def __init__(
@@ -53,10 +53,7 @@ class Trainer:
             self.expert_params = param_groups[2]['params']
             self.expert_and_base_params = self.base_params + self.expert_params
             
-            if self.top_k is not None:
-                self.gating_accuracy_loss_fn = GatingSelectionAccuracyLoss(top_k=self.top_k)
-            else:
-                self.gating_accuracy_loss_fn = GatingSelectionAccuracyLoss(top_k=1)
+            self.gating_accuracy_loss_fn = GatingSelectionLoss()
 
     def train_one_epoch(
         self,
@@ -90,7 +87,7 @@ class Trainer:
 
             expert_loss.backward(retain_graph=True)
             
-            pi_metrics_pre = {} 
+            pi_metrics_pre: Dict[str, Any] = {}
 
             for component in self.strategy_components:
                 if isinstance(component, SurpriseMinKStrategy):
@@ -122,30 +119,22 @@ class Trainer:
                 step_result: StepResult = {
                     "global_step": global_step,
                     "loss": expert_loss.item(),
-                    "gating_selection_accuracy": gating_loss_val,
+                    "gating_selection_accuracy": gating_loss_val, # Now represents the BCE loss
                     "accuracy": accuracy,
                     "task_name": task_name,
-                    **pi_metrics,
                 }
+                step_result.update(cast(StepResult, pi_metrics))
                 
                 for component in self.strategy_components:
                     all_top_indices = [info['top_indices'] for info in all_routing_info] if all_routing_info else None
                     component_metrics = component.apply(self.model, self.optimizer, pi_metrics, all_routing_info, all_top_indices)
                     step_result.update(component_metrics)
-                
-                if self.min_k is not None and all_routing_info:
-                    min_k_indices_from_step = step_result.get('min_k_expert_indices')
-                    if min_k_indices_from_step:
-                        gating_selection_accuracy_val = calculate_gating_selection_accuracy(
-                            all_routing_info, min_k_indices_from_step, self.top_k
-                        )
-                        step_result["gating_selection_accuracy"] = gating_selection_accuracy_val
 
                 epoch_results.append(step_result)
                 global_step += 1
 
                 logger = TensorBoardLogger(self.writer, global_step)
-                logger.log_metrics(step_result, task_name, scope="Train")
+                logger.log_metrics(cast(Dict[str, Any], step_result), task_name, scope="Train")
 
                 train_loader_tqdm.set_postfix(
                     loss=f"{step_result.get('loss', 0.0):.4f}",
@@ -163,12 +152,12 @@ class Trainer:
         all_surprises: List[float] = []
         all_taus: List[float] = []
         all_gating_taus: List[float] = []
-        all_gating_selection_accuracies: List[float] = []
+        all_gating_losses: List[float] = []
 
         for data, target in val_loader:
             data, target = data.to(self.device), target.to(self.device)
             
-            with torch.enable_grad():
+            with torch.enable_grad(): # Keep grad enabled for pi_metrics calculation
                 output = self.model(data)
                 all_routing_info = None
                 if isinstance(output, tuple) and len(output) > 1 and isinstance(output[1], list):
@@ -177,8 +166,8 @@ class Trainer:
                     logits = output[0] if isinstance(output, tuple) else output
 
                 loss_epsilon = self.loss_fn(logits, target)
-                loss_epsilon.backward()
-                
+                loss_epsilon.backward() # Compute gradients for pi_metrics
+
                 all_grads = [p.grad for p in self.model.parameters() if p.grad is not None]
                 pi_metrics = self.pi_monitor.calculate(all_grads, loss_epsilon, logits)
                 
@@ -188,17 +177,19 @@ class Trainer:
                 if 'gating_tau' in pi_metrics:
                     all_gating_taus.append(pi_metrics['gating_tau'])
 
-                if self.min_k is not None and all_routing_info:
-                    # In validation, we don't have surprise-based min_k, so we check against top_k from logits
-                    min_k_indices_from_logits = {}
+                # Calculate gating loss for validation
+                gating_loss_val = 0.0
+                if self.is_moe_model and all_routing_info and self.min_k is not None:
+                    total_gating_loss = torch.tensor(0.0, device=self.device)
                     for i, info in enumerate(all_routing_info):
+                        # In validation, we don't have surprise-based min_k, so we use top_k from logits
                         _, top_indices = torch.topk(info['log_probs'], self.min_k, dim=-1)
-                        min_k_indices_from_logits[i] = top_indices.cpu().flatten().tolist()
-
-                    gating_selection_accuracy_val = calculate_gating_selection_accuracy(
-                        all_routing_info, min_k_indices_from_logits, self.top_k
-                    )
-                    all_gating_selection_accuracies.append(gating_selection_accuracy_val)
+                        min_k_indices_for_val = {i: top_indices.cpu().flatten().tolist()}
+                        total_gating_loss += self.gating_accuracy_loss_fn(info['log_probs'], min_k_indices_for_val, i)
+                    
+                    if len(all_routing_info) > 0:
+                        gating_loss_val = (total_gating_loss / len(all_routing_info)).item()
+                all_gating_losses.append(gating_loss_val)
 
             with torch.no_grad():
                 total_loss += loss_epsilon.item()
@@ -214,7 +205,7 @@ class Trainer:
         avg_surprise = sum(all_surprises) / len(all_surprises) if all_surprises else 0.0
         avg_tau = sum(all_taus) / len(all_taus) if all_taus else 0.0
         avg_gating_tau = sum(all_gating_taus) / len(all_gating_taus) if all_gating_taus else None
-        avg_gating_selection_accuracy = sum(all_gating_selection_accuracies) / len(all_gating_selection_accuracies) if all_gating_selection_accuracies else None
+        avg_gating_loss = sum(all_gating_losses) / len(all_gating_losses) if all_gating_losses else None
 
         summary_parts = [
             f"{dataset_name} set:",
@@ -226,8 +217,8 @@ class Trainer:
         ]
         if avg_gating_tau is not None and avg_gating_tau > 0:
             summary_parts.append(f"Avg Gating Tau: {avg_gating_tau:.4f}")
-        if avg_gating_selection_accuracy is not None:
-            summary_parts.append(f"Avg Gating Selection Accuracy: {avg_gating_selection_accuracy:.2f}%")
+        if avg_gating_loss is not None:
+            summary_parts.append(f"Avg Gating Loss: {avg_gating_loss:.4f}")
         
         print(", ".join(filter(None, summary_parts)))
 
@@ -238,12 +229,12 @@ class Trainer:
             "surprise": avg_surprise,
             "tau": avg_tau,
             "gating_tau": avg_gating_tau,
-            "gating_selection_accuracy": avg_gating_selection_accuracy,
+            "gating_loss": avg_gating_loss,
         }
         logger = TensorBoardLogger(self.writer, global_step)
         logger.log_metrics({k: v for k, v in val_metrics.items() if v is not None}, dataset_name, scope="Validation")
 
-        return avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_selection_accuracy
+        return avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_loss
 
     def _compute_grads(self, expert_loss, all_routing_info, min_k_expert_indices_per_layer, accumulation_steps):
         gating_loss_val = 0.0
@@ -252,7 +243,7 @@ class Trainer:
             for i, info in enumerate(all_routing_info):
                 if i in min_k_expert_indices_per_layer:
                     layer_min_k_indices = {i: min_k_expert_indices_per_layer[i]}
-                    total_gating_loss += self.gating_accuracy_loss_fn(info['log_probs'], layer_min_k_indices)
+                    total_gating_loss += self.gating_accuracy_loss_fn(info['log_probs'], layer_min_k_indices, i)
             
             gating_loss = total_gating_loss / len(all_routing_info)
             gating_loss_val = gating_loss.item()

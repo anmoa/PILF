@@ -2,6 +2,7 @@ import importlib
 import os
 from typing import Any, Dict
 
+
 class Config:
     def __init__(self, model_config_path: str, schedule_path: str):
         model_module = self._import_module(model_config_path)

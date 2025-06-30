@@ -1,5 +1,7 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 from torch.utils.tensorboard import SummaryWriter
+
 
 class TensorBoardLogger:
     def __init__(self, writer: SummaryWriter, global_step: int):

@@ -1,6 +1,7 @@
 import numpy as np
 from omegaid.core.phiid import calc_phiid_ccs
 
+
 def generate_data(n_samples, n_features, case="redundancy"):
     """
     Generates synthetic data for s1, s2, and t based on a specific

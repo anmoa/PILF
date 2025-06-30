@@ -1,5 +1,7 @@
-import torch
 from typing import Dict, List
+
+import torch
+
 
 def get_surprise_from_grads_torch(gradients: List[torch.Tensor]) -> torch.Tensor:
     valid_gradients = [g for g in gradients if g is not None]

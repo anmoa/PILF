@@ -1,6 +1,8 @@
 from typing import Any, Dict
+
 import torch.nn as nn
 import torch.optim as optim
+
 
 def create_optimizer(model: nn.Module, config: Dict[str, Any]) -> optim.Optimizer:
     learning_rate = config.get('learning_rate', 1e-3)
