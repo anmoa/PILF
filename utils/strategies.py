@@ -8,30 +8,52 @@ from sigma_pi import get_surprise_from_grads_torch
 from utils.types import StepResult
 
 
+def create_strategy_pipeline(
+    strategy_configs: List[Dict[str, Any]],
+    device: torch.device,
+    pilr_config: Dict[str, Any]
+) -> List["StrategyComponent"]:
+    strategy_map = {
+        'Standard': StandardStrategy,
+        'Selective': SelectiveUpdateStrategy,
+        'SurpriseMinK': SurpriseMinKStrategy,
+        'PILR_Single': PILRStrategy,
+        'PILR_Dual': PILRStrategy,
+    }
+    
+    components: List[StrategyComponent] = []
+    for config in strategy_configs:
+        strategy_name = config['name']
+        strategy_cls = strategy_map.get(strategy_name)
+        if not strategy_cls:
+            raise ValueError(f"Unknown strategy component: {strategy_name}")
+        
+        component_kwargs = {**pilr_config, **config}
+        
+        if strategy_cls == PILRStrategy:
+            components.append(strategy_cls(device=device, **component_kwargs))
+        else:
+            components.append(strategy_cls(**component_kwargs))
+            
+    return components
+
 def _get_active_indices(all_top_indices: List[torch.Tensor]) -> Dict[int, List[int]]:
-    """Converts a list of expert index tensors to a dictionary of unique active indices per layer."""
     active_indices: Dict[int, List[int]] = {}
     for layer_idx, indices_tensor in enumerate(all_top_indices):
         active_indices[layer_idx] = torch.unique(indices_tensor.cpu()).tolist()
     return active_indices
 
 def pilr_modulation(surprise: torch.Tensor, mu: torch.Tensor, sigma: torch.Tensor, power: float, exponent: float) -> torch.Tensor:
-    """
-    Calculates the learning rate modulation factor based on surprise.
-    This can be a Gaussian, exponential, or other curve based on power and exponent.
-    """
     return torch.exp(-power * (torch.abs(surprise - mu) / (sigma + 1e-9)) ** exponent)
 
 class PILRAdaptor:
-    """
-    Predictive Integrity-driven Learning Rate Adaptor.
-    Tracks the second-order statistics of surprise to dynamically adapt sigma.
-    """
-    def __init__(self, device: torch.device, initial_var: float = 1.0, beta: float = 0.1, **kwargs):
+    def __init__(self, device: torch.device, initial_var: float = 1.0, beta: float = 0.1, inverse_ema: bool = False, inverse_ema_k: float = 0.1, **kwargs):
         self.device = device
         self.alpha = 0.1
         self.beta = beta
         self.initial_var = initial_var
+        self.inverse_ema = inverse_ema
+        self.inverse_ema_k = inverse_ema_k
         self.reset_state()
 
     def reset_state(self, mu: Optional[float] = None, var: Optional[float] = None):
@@ -41,17 +63,18 @@ class PILRAdaptor:
     def step(self, surprise_value: float):
         surprise = torch.tensor(surprise_value, device=self.device)
         self.ema_mu = (1 - self.alpha) * self.ema_mu + self.alpha * surprise
-        self.ema_var = (1 - self.beta) * self.ema_var + self.beta * (surprise - self.ema_mu) ** 2
+        
+        if self.inverse_ema:
+            deviation = torch.abs(surprise - self.ema_mu)
+            target_var = torch.exp(-self.inverse_ema_k * deviation)
+            self.ema_var = (1 - self.beta) * self.ema_var + self.beta * target_var
+        else:
+            self.ema_var = (1 - self.beta) * self.ema_var + self.beta * (surprise - self.ema_mu) ** 2
     
     def get_sigma(self) -> torch.Tensor:
         return torch.sqrt(self.ema_var + 1e-9)
 
 class StrategyComponent:
-    """
-    Base class for strategy components.
-    Each component should implement a `apply` method that takes relevant inputs
-    and returns a dictionary of metrics/updates.
-    """
     def __init__(self, **kwargs):
         pass
 
@@ -75,7 +98,7 @@ class SelectiveUpdateStrategy(StrategyComponent):
         
         model_module = model.module if isinstance(model, nn.DataParallel) else model
         if hasattr(model_module, 'zero_inactive_expert_grads'):
-             model_module.zero_inactive_expert_grads(all_top_indices)
+             model_module.zero_inactive_expert_grads(all_gating_logits)
         else:
             raise AttributeError("Model does not have 'zero_inactive_expert_grads' method required for SelectiveUpdate.")
         
@@ -130,11 +153,12 @@ class SurpriseMinKStrategy(StrategyComponent):
                         param.grad.zero_()
         
         if hasattr(model_module, 'zero_inactive_expert_grads'):
-            model_module.zero_inactive_expert_grads(all_top_indices)
+            model_module.zero_inactive_expert_grads(all_gating_logits)
         
         return StepResult(
             active_expert_indices=active_expert_indices,
             updated_expert_indices=updated_expert_indices,
+            min_k_expert_indices=updated_expert_indices, 
         )
 
 class PILRStrategy(StrategyComponent):
@@ -201,13 +225,12 @@ class PILRStrategy(StrategyComponent):
         lr_modulation = pilr_modulation(surprise, mu, sigma, **modulation_kwargs)
         
         for pg in optimizer.param_groups:
-            if pg.get('name') == 'base': # Only modulate the base LR group
+            if pg.get('name') == 'base':
                 pg['lr'] = pg['initial_lr'] * lr_modulation
             
         return StepResult(lr_mod=lr_modulation.item(), sigma=sigma.item(), decision='CONSOLIDATE')
 
     def _apply_dual(self, model: nn.Module, optimizer: optim.Optimizer, pi_metrics: Dict[str, Any]) -> StepResult:
-        # Access param groups by name, assuming they are set up in _get_optimizer
         gating_param_group = next((pg for pg in optimizer.param_groups if pg.get('name') == 'gating'), None)
         expert_param_group = next((pg for pg in optimizer.param_groups if pg.get('name') == 'experts'), None)
 

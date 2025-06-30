@@ -1,5 +1,6 @@
 # Predictive Integrity Learning Framework (PILF)
 
+[![Theory: IPWT](https://img.shields.io/badge/Theory-IPWT-blue?style=flat-square)](https://github.com/dmf-archive/IPWT)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dmf-archive/PILF)
 
@@ -134,6 +135,16 @@ graph LR
 **Limitation: Catastrophic Forgetting Not Yet Eradicated**
 
 Although Gaussian routing significantly **mitigates** catastrophic forgetting through functional specialization, it does **not completely solve** the problem. The experts' "knowledge domains" (i.e., their Gaussian parameters `μ` and `σ`) are still trainable and can "drift" when interfered with by new data distributions. This is why in the future GenGaussMoE-D stage, we must introduce a parallel **generative memory system** (e.g., a GAN) to actively consolidate and calibrate these knowledge domains through "dream rehearsal," thereby achieving true continual learning.
+
+### Stage 3.1: LGO (Local Gating Optimizer) - [New Enhancement]
+
+To further enhance the stability and specialization of Gaussian routing, we introduce the **Local Gating Optimizer (LGO)**. LGO decouples the training of the gating network from the main task loss, optimizing it independently based on local signals.
+
+**Core Mechanism: Decoupled Gating Optimization**
+
+1. **Confidence Loss**: Encourages the gating network to make more confident and sparse routing decisions by maximizing the log probability of the chosen experts. This helps in forming sharper "knowledge domains."
+2. **Load Balancing Loss**: Prevents expert starvation and promotes a more even distribution of workload across experts by penalizing imbalanced activation frequencies.
+3. **Independent Gradients**: LGO calculates and applies gradients to the gating network parameters (Gaussian means `μ` and log standard deviations `log_sigma`) separately from the main model's backpropagation. This ensures that the gating network learns a stable routing policy without being directly influenced by the potentially volatile task loss, thereby mitigating catastrophic forgetting in routing.
 
 ### Stage 4: GenGaussMoE-D (Generative Gaussian-Routed Dynamic MoE) - [Future Direction]
 

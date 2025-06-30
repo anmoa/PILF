@@ -2,14 +2,14 @@
 
 本计划旨在用 TensorBoard 替换现有的日志和绘图系统，以实现更强大、自动化的实验跟踪。
 
-## 已完成事项
+## 已完成事项 (V2 日志与可视化)
 
-- [x] **统一数据契约**: 创建 `utils/types.py`，改造 `utils/strategies.py` 和 `utils/training.py`。
-- [x] **重构可视化引擎**: 重写 `utils/plotting.py`，删除旧的 `plot_metrics` 及其所有辅助函数。
-- [x] **集成 TensorBoard 工作流**: 改造 `train.py` 以初始化 `SummaryWriter` 并移除旧的日志目录；改造 `utils/training.py` 以实时记录 `StepResult` 中的标量指标和验证指标到 TensorBoard。
-- [x] **配置文件系统重构 V4**: 完成了策略系统重构、统一命名、配置文件重构、`train.py` 改造，并进行了静态检查和修复。
+- [x] **V2 日志与可视化系统**: 已完成 TensorBoard 集成和配置文件系统重构 V4。
+- [x] **V5 框架重构与解耦**: 已完成核心组件分离、Trainer 类重构和 LGO 解耦路由训练。
+- [x] **`surprise` 计算与 PI 兼容性修复**: 调整了梯度裁剪顺序，并创建了本地 `PiCalculator` 以适应分层 BP。
+- [x] **日志与绘图功能增强**: 实现了 `TensorBoardLogger` 和 `calculate_gating_selection_accuracy` 的模块化，并在训练结束时生成专家激活和门控路由热力图及散点图。
 
-## Epic 4: 集成 ΩID 信息动力学分析 (The ΩID Toolkit)
+## Epic 5: 集成 ΩID 信息动力学分析 (The ΩID Toolkit)
 
 **目标**: 为框架增加“神经元级别”的观测能力，通过捕获激活数据并进行离线信息论分析，验证核心理论假说。
 
@@ -59,3 +59,4 @@
     - 对每个 epoch，为所有分析的专家对生成信息原子图表。
     - 可以生成一个矩阵图（heatmap），行和列都是专家索引，单元格的颜色表示特定信息原子（如协同 `S` 或冗余 `R`）的强度。
     - 将图表保存到 `run-dir/oid_plots/{probe_name}/` 目录中。
+

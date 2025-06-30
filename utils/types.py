@@ -21,6 +21,11 @@ class StepResult(TypedDict, total=False):
     tau: float
     gating_tau: float
 
+    # --- Gating-related Metrics ---
+    gating_confidence_loss: float
+    gating_load_balancing_loss: float
+    gating_selection_accuracy: float
+
     # --- PISA/PILR-S Strategy Metrics ---
     lr_mod: float
     gating_lr_mod: float
@@ -33,9 +38,10 @@ class StepResult(TypedDict, total=False):
     # --- MoE-related Metrics ---
     active_expert_indices: Dict[int, List[int]]
     updated_expert_indices: Dict[int, List[int]]
+    min_k_expert_indices: Dict[int, List[int]]
     all_log_probs: List[torch.Tensor]
     all_top_indices: List[torch.Tensor]
 
 
 # Type alias for the return value of the validate function
-ValidationResult = Tuple[float, float, float, float, float, Optional[float]]
+ValidationResult = Tuple[float, float, float, float, float, Optional[float], Optional[float]]

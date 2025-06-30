@@ -43,4 +43,9 @@ pilr_config = {
     'gating_modulation_exponent': 1.0,
     'expert_modulation_power': 0.5,
     'expert_modulation_exponent': 2.0,
+    'gating_inverse_ema': True,
+    'gating_inverse_ema_k': 0.1,
 }
+
+# 4. Gating-specific loss configuration (DEPRECATED)
+gating_loss_config = None

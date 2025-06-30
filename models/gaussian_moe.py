@@ -56,7 +56,13 @@ class GaussianMoELayer(nn.Module):
         
         final_output = combined_output.reshape(batch_size, num_tokens, -1)
         
-        return final_output, log_probs.reshape(batch_size, num_tokens, -1), top_indices_for_update
+        routing_info = {
+            "log_probs": log_probs.reshape(batch_size, num_tokens, -1),
+            "weights": weights.reshape(batch_size, num_tokens, -1),
+            "top_indices": top_indices_for_update
+        }
+        
+        return final_output, routing_info
 
 class GaussianMoEVisionTransformer(VisionTransformer):
     """A Vision Transformer with GaussianMoE layers."""
@@ -87,32 +93,30 @@ class GaussianMoEVisionTransformer(VisionTransformer):
         x = x + self.pos_embed
         x = self.pos_drop(x)
         
-        all_log_probs = []
-        all_top_indices = []
+        all_routing_info = []
         for block in self.blocks:
             x_norm1 = block.norm1(x)
             attn_output, _ = block.attn(x_norm1, x_norm1, x_norm1)
             x = x + block.dropout(attn_output)
             
             x_norm2 = block.norm2(x)
-            mlp_output, log_probs, top_indices = block.mlp(x_norm2)
+            mlp_output, routing_info = block.mlp(x_norm2)
             x = x + block.dropout(mlp_output)
-            all_log_probs.append(log_probs)
-            all_top_indices.append(top_indices)
+            all_routing_info.append(routing_info)
             
         x = self.norm(x)
         
         cls_token_final = x[:, 0]
         logits = self.head(cls_token_final)
         
-        return logits, all_top_indices, all_log_probs
+        return logits, all_routing_info
 
-    def zero_inactive_expert_grads(self, all_top_indices):
+    def zero_inactive_expert_grads(self, all_routing_info):
         with torch.no_grad():
             for i, block in enumerate(self.blocks):
                 if isinstance(block.mlp, GaussianMoELayer):
-                    top_indices_block = all_top_indices[i]
-                    device = top_indices_block.device 
+                    top_indices_block = all_routing_info[i]["top_indices"]
+                    device = top_indices_block.device
                     
                     active_experts_mask = torch.zeros(block.mlp.num_experts, dtype=torch.bool, device=device)
                     active_experts_mask[top_indices_block.unique()] = True
