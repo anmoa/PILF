@@ -15,8 +15,14 @@ from utils.config import load_config
 from utils.datasets import get_dataset
 from utils.optimizers import create_optimizer
 from utils.pi_calculator import PiCalculator
-from utils.plotting import plot_expert_scatter, plot_expert_heatmap
-from utils.strategies import create_strategy_pipeline
+from utils.plotting import plot_expert_heatmap, plot_expert_scatter
+from utils.strategies.backpropagation_strategies import (
+    SelectiveUpdateStrategy,
+    StandardStrategy,
+    SurpriseMinKStrategy,
+)
+from utils.strategies.base_strategy import StrategyComponent
+from utils.strategies.learning_rate_strategies import PILRStrategy
 from utils.training import Trainer
 from utils.types import StepResult
 
@@ -54,7 +60,17 @@ def run_schedule(
     optimizer = create_optimizer(model, config.schedule['train_config'])
     loss_fn = nn.CrossEntropyLoss()
     pi_monitor = PiCalculator(device=str(device), **config.schedule['pi_config'])
-    strategy_components = create_strategy_pipeline(config.train_strategy['strategies'], device, config.pilr)
+    strategy_components: List[StrategyComponent] = []
+    for strategy_config in config.train_strategy['strategies']:
+        name = strategy_config['name']
+        if name == 'Standard':
+            strategy_components.append(StandardStrategy())
+        elif name == 'Selective':
+            strategy_components.append(SelectiveUpdateStrategy())
+        elif name == 'SMK':
+            strategy_components.append(SurpriseMinKStrategy(**strategy_config.get('params', {})))
+        elif name == 'PILR':
+            strategy_components.append(PILRStrategy(device, **config.pilr))
 
     # --- 4. Tensorboard and Logging ---
     runs_dir = os.path.join(output_dir, "runs")
@@ -144,12 +160,27 @@ def run_schedule(
                     task_name=task_name,
                 )
                 
-                if epoch_results:
+                if epoch_results: # Accumulate results from the current epoch
                     all_train_results.extend(epoch_results)
             
+            # Save checkpoint after each task
             current_checkpoint_path = os.path.join(output_dir, "checkpoints", f"epoch_{global_step}.pth")
             torch.save(model.state_dict(), current_checkpoint_path)
             print(f"Checkpoint saved to {current_checkpoint_path}")
+
+            # Plotting for Active Experts after each task, if data is available
+            if all_train_results and any('active_expert_indices' in r for r in all_train_results):
+                num_layers = config.model.get('depth', 1)
+                num_experts = config.model.get('num_experts', 1)
+                
+                fig_heatmap_active_task = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'active')
+                writer.add_figure(f'Expert Dynamics/Active Experts Heatmap (Task: {task_name})', fig_heatmap_active_task, global_step)
+                plt.close(fig_heatmap_active_task)
+
+                if any('updated_expert_indices' in r for r in all_train_results):
+                    fig_heatmap_updated_task = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'updated')
+                    writer.add_figure(f'Expert Dynamics/Updated Experts Heatmap (Task: {task_name})', fig_heatmap_updated_task, global_step)
+                    plt.close(fig_heatmap_updated_task)
 
             # Delete previous checkpoint to save disk space
             if last_checkpoint_path is not None and os.path.exists(last_checkpoint_path):

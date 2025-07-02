@@ -149,7 +149,7 @@ class GaussianMoEVisionTransformer(VisionTransformer):
         expert_params = []
         base_params = []
 
-        for name, param in self.named_parameters():
+        for _, param in self.named_parameters():
             param_id = id(param)
             if param_id in gating_param_ids:
                 gating_params.append(param)

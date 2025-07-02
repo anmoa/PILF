@@ -45,4 +45,4 @@
 | 脚本 | 主要目的 | 示例命令 |
 | :--- | :--- | :--- |
 | `train.py` | 运行所有类型的实验 | `python train.py --schedule <schedule_path> --model-config <model_config_path>` |
-| `train.py` | 运行马拉松复习实验 | `python train.py --schedule schedules/marathon_v1.py --model-config configs/large_pilr_mnist.py` |
+| `train.py` | 运行马拉松复习实验 | `python train.py --schedule schedules/marathon_v3 --model-config configs/large_gauss_moe_smk_pilr_d` |

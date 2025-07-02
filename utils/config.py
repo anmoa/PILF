@@ -8,12 +8,12 @@ class Config:
         model_module = self._import_module(model_config_path)
         schedule_module = self._import_module(schedule_path)
 
-        self.model: Dict[str, Any] = getattr(model_module, 'model_config')
+        self.model: Dict[str, Any] = model_module.model_config
         self.train_strategy: Dict[str, Any] = getattr(model_module, 'train_strategy_config', {'strategies': [{'name': 'Standard'}]})
         self.pilr: Dict[str, Any] = getattr(model_module, 'pilr_config', {})
         self.gating_loss: Dict[str, Any] = getattr(model_module, 'gating_loss_config', {})
         
-        self.schedule: Dict[str, Any] = getattr(schedule_module, 'schedule_config')
+        self.schedule: Dict[str, Any] = schedule_module.schedule_config
 
     def _import_module(self, path: str) -> Any:
         # Convert file system path to Python module path

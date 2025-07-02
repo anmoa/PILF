@@ -15,12 +15,13 @@ def generate_data(n_samples, n_features, case="redundancy"):
     Returns:
         tuple: (s1, s2, t) as numpy arrays.
     """
-    s1 = np.random.randn(n_samples, n_features)
-    s2 = np.random.randn(n_samples, n_features)
+    rng = np.random.default_rng()
+    s1 = rng.standard_normal((n_samples, n_features))
+    s2 = rng.standard_normal((n_samples, n_features))
     
     if case == "redundancy":
         # Both s1 and s2 are correlated with a common signal
-        common_signal = np.random.randn(n_samples, n_features)
+        common_signal = rng.standard_normal((n_samples, n_features))
         s1 = s1 * 0.1 + common_signal
         s2 = s2 * 0.1 + common_signal
         t = common_signal
