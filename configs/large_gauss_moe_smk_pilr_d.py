@@ -34,7 +34,7 @@ train_strategy_config = {
 # 3. PILR-specific parameters, shared across strategies if needed.
 pilr_config = {
     'gating_initial_var': 5.0,
-    'expert_initial_var': 0.8,
+    'expert_initial_var': 1000.0, # Set to a large value to effectively disable PILR modulation for experts
     'gating_beta': 0.05, # Normal beta for gating
     'expert_beta': 0.0, # As per our findings, SMK replaces expert-side PILR.
     'gating_beta_warmup': 0.9,

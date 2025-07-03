@@ -15,7 +15,7 @@
 - **学习率引擎**
   - `固定 LR`: 默认行为，不使用任何调度器。
   - `PILR-S`: 预测完整性学习率调度器 (静态)。基于`Surprise`调节学习率。
-  - `PILR-D`: 预测完整性学习率调度器 (动态)。基于`Surprise`调节学习率变化比率的动态学习率引擎 (原 `PISA`)。
+  - `PILR-D`: 预测完整性学习率调度器 (动态)。基于`Surprise`调节学习率变化比率的动态学习率引擎 (原 `PISA`)。可以通过设置 `expert_initial_var` 为一个大值（例如1000.0）来“软禁用”专家网络的PILR调制。
 - **前向路由策略**
   - `Linear Top-K`: 简单的线性层 + Top-K。
   - `Gaussian Top-K`: 基于输入与专家高斯分布的匹配度进行路由。
@@ -45,4 +45,5 @@
 | 脚本 | 主要目的 | 示例命令 |
 | :--- | :--- | :--- |
 | `train.py` | 运行所有类型的实验 | `python train.py --schedule <schedule_path> --model-config <model_config_path>` |
+| `train.py` | 从检查点恢复训练 | `python train.py --schedule <schedule_path> --model-config <model_config_path> --resume-from <checkpoint_path>` |
 | `train.py` | 运行马拉松复习实验 | `python train.py --schedule schedules/marathon_v3 --model-config configs/large_gauss_moe_smk_pilr_d` |
