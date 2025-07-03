@@ -35,12 +35,7 @@ def calculate_pi_torch(
         "surprise": surprise,
     }
 
-class PiCalculator:
-    def __init__(self, alpha: float = 1.0, gamma: float = 0.5, device: str = 'cpu'):
-        self.alpha = torch.tensor(alpha, device=device)
-        self.gamma = torch.tensor(gamma, device=device)
-        self.device = device
-
+class LocalPiCalculator:
     def calculate(
         self,
         gradients: List[torch.Tensor],
@@ -48,6 +43,32 @@ class PiCalculator:
         logits: torch.Tensor
     ) -> Dict[str, float]:
         if not gradients:
+            return {
+                "epsilon": 0.0,
+                "tau": 0.0,
+                "surprise": 0.0,
+            }
+
+        tau_tensor = get_entropy_from_logits_torch(logits)
+        surprise_tensor = get_surprise_from_grads_torch(gradients)
+        
+        return {
+            "epsilon": loss_epsilon.item(),
+            "tau": tau_tensor.item(),
+            "surprise": surprise_tensor.item(),
+        }
+
+class GlobalPiCalculator:
+    def __init__(self, alpha: float = 1.0, gamma: float = 0.5, device: str = 'cpu'):
+        self.alpha = torch.tensor(alpha, device=device)
+        self.gamma = torch.tensor(gamma, device=device)
+        self.device = device
+
+    def calculate(
+        self,
+        local_pi_components: List[Dict[str, float]]
+    ) -> Dict[str, float]:
+        if not local_pi_components:
             return {
                 "pi_score": 0.0,
                 "normalized_error": 0.0,
@@ -57,13 +78,14 @@ class PiCalculator:
                 "surprise": 0.0,
             }
 
-        tau_tensor = get_entropy_from_logits_torch(logits)
-        surprise_tensor = get_surprise_from_grads_torch(gradients)
+        total_epsilon = torch.tensor(sum(c['epsilon'] for c in local_pi_components), device=self.device)
+        total_tau = torch.tensor(sum(c['tau'] for c in local_pi_components), device=self.device)
+        total_surprise = torch.tensor(sum(c['surprise'] for c in local_pi_components), device=self.device)
 
         pi_metrics_tensors = calculate_pi_torch(
-            epsilon=loss_epsilon,
-            tau=tau_tensor,
-            surprise=surprise_tensor,
+            epsilon=total_epsilon,
+            tau=total_tau,
+            surprise=total_surprise,
             alpha=self.alpha,
             gamma=self.gamma
         )

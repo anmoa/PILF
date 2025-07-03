@@ -3,31 +3,31 @@
 ## Epic 0: 简化和整理代码
 
 - [x] **将专家网络从 PILR 调制中移除**：专家网络将使用其默认学习率，并由 SMK 机制管理。通过将 `expert_initial_var` 设置为大值（例如1000.0）来实现“软禁用”PILR调制。
-- [ ] **预测完整性 (PI) 计算系统重构**：
+- [x] **预测完整性 (PI) 计算系统重构**：
   - **目标**：实现局域PI计算和全局PI汇总，并共享`alpha`和`gamma`超参数，以更好地反映分层BP和FP的动态。
-  - **子任务1：修改`utils/pi_calculator.类`**
-    - [ ] **引入`LocalPiCalculator`类**：
+  - [x] **子任务1：修改`utils/pi_calculator.类`**
+    - [x] **引入`LocalPiCalculator`类**：
       - 职责：计算单个模块的局域PI组成部分（`epsilon`, `tau`, `surprise`）。
       - 输入：模块的梯度、损失和logits。
       - `alpha`和`gamma`：由外部传入，不再是其成员变量。
-    - [ ] **重命名`PiCalculator`为`GlobalPiCalculator`**：
+    - [x] **重命名`PiCalculator`为`GlobalPiCalculator`**：
       - 职责：汇总所有局域PI组成部分，计算最终的全局PI。
       - `__init__`：只接收`alpha`和`gamma`。
       - `calculate`：接收包含所有局域PI组成部分的列表（或字典），进行汇总计算。
-  - **子任务2：修改`utils/training.py`的`Trainer`类**
-    - [ ] **实例化PI计算器**：在`__init__`中实例化`GlobalPiCalculator`。
-    - [ ] **调整`train_one_epoch`**：
+  - [x] **子任务2：修改`utils/training.py`的`Trainer`类**
+    - [x] **实例化PI计算器**：在`__init__`中实例化`GlobalPiCalculator`。
+    - [x] **调整`train_one_epoch`**：
       - 在门控网络和专家网络各自的反向传播之后，分别计算其局域的`surprise`、`epsilon`和`tau`。
       - 收集这些局域PI组成部分。
       - 在每个step结束时，调用`GlobalPiCalculator`的`calculate`方法，计算全局PI。
       - 将全局PI传递给`PILRStrategy`。
-    - [ ] **调整`validate`方法**：在验证阶段也进行局域PI的计算和汇总。
-  - **子任务3：修改`utils/strategies/learning_rate_strategies.py`的`PILRStrategy`类**
-    - [ ] **简化`_apply_dual`**：`PILRAdaptor`不再需要独立的`alpha`参数。
-    - [ ] `PILRStrategy`从`Trainer`接收全局PI，并根据需要提取或计算适用于门控和专家的`surprise`值，传递给各自的`PILRAdaptor`。
-  - **子任务4：更新`train.py`**
-    - [ ] 调整`GlobalPiCalculator`的实例化方式。
-- [ ] **将 `mlp_dim` 转换为 `mlp_ratio` 派生参数**：
+    - [x] **调整`validate`方法**：在验证阶段也进行局域PI的计算和汇总。
+  - [x] **子任务3：修改`utils/strategies/learning_rate_strategies.py`的`PILRStrategy`类**
+    - [x] **简化`_apply_dual`**：`PILRAdaptor`不再需要独立的`alpha`参数。
+    - [x] `PILRStrategy`从`Trainer`接收全局PI，并根据需要提取或计算适用于门控和专家的`surprise`值，传递给各自的`PILRAdaptor`。
+  - [x] **子任务4：更新`train.py`**
+    - [x] 调整`GlobalPiCalculator`的实例化方式。
+- [x] **将 `mlp_dim` 转换为 `mlp_ratio` 派生参数**：
   - 在模型配置中引入 `mlp_ratio`，并从 `model_config['embed_dim'] * model_config['mlp_ratio']` 派生 `mlp_dim`。
 - [x] **移除未使用的 `ood_inhibition_c` 参数**：
   - 从 `models/gaussian_moe.py` 中的 `GaussianMoELayer` 的 `__init__` 方法中移除 `ood_inhibition_c` 参数及其相关代码。

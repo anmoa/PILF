@@ -9,6 +9,10 @@ class Config:
         schedule_module = self._import_module(schedule_path)
 
         self.model: Dict[str, Any] = model_module.model_config
+        
+        if 'mlp_ratio' in self.model and 'embed_dim' in self.model:
+            self.model['mlp_dim'] = int(self.model['embed_dim'] * self.model['mlp_ratio'])
+
         self.train_strategy: Dict[str, Any] = getattr(model_module, 'train_strategy_config', {'strategies': [{'name': 'Standard'}]})
         self.pilr: Dict[str, Any] = getattr(model_module, 'pilr_config', {})
         

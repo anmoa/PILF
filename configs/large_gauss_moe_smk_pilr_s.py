@@ -10,7 +10,7 @@ model_config = {
     'embed_dim': 64,
     'depth': 3,
     'num_heads': 4,
-    'mlp_dim': 64,
+    'mlp_ratio': 1.0, # Derived from embed_dim * mlp_ratio
     'dropout': 0.1,
     'num_experts': 16,
     'top_k': 4,
@@ -29,8 +29,7 @@ train_strategy_config = {
 }
 
 pilr_config = {
-    'gating_initial_var': 5.0,
-    'expert_initial_var': 0.8,
+    'expert_initial_var': 1000.0, # Set to a large value to effectively disable PILR modulation for experts
     'gating_beta': 0.0, # PILR-S for gating (static sigma)
     'expert_beta': 0.0, # PILR-S for experts (static sigma), effectively disabled by SMK
     'gating_beta_warmup': 0.0, # No warmup for static beta

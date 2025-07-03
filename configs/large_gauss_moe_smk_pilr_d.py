@@ -11,7 +11,7 @@ model_config = {
     'embed_dim': 64,
     'depth': 3,
     'num_heads': 4,
-    'mlp_dim': 64,
+    'mlp_ratio': 1.0, # Derived from embed_dim * mlp_ratio
     'dropout': 0.1,
     'num_experts': 16,
     'top_k': 4,
@@ -33,8 +33,6 @@ train_strategy_config = {
 
 # 3. PILR-specific parameters, shared across strategies if needed.
 pilr_config = {
-    'gating_initial_var': 5.0,
-    'expert_initial_var': 1000.0, # Set to a large value to effectively disable PILR modulation for experts
     'gating_beta': 0.05, # Normal beta for gating
     'expert_beta': 0.0, # As per our findings, SMK replaces expert-side PILR.
     'gating_beta_warmup': 0.9,

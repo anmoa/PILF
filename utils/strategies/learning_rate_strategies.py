@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sigma_pi import get_surprise_from_grads_torch
 
 from utils.strategies.base_strategy import StrategyComponent
 from utils.types import StepResult
@@ -15,7 +14,6 @@ def pilr_modulation(surprise: torch.Tensor, mu: torch.Tensor, sigma: torch.Tenso
 class PILRAdaptor:
     def __init__(self, device: torch.device, initial_var: float = 1.0, beta: float = 0.1, inverse_ema: bool = False, inverse_ema_k: float = 0.1, **kwargs):
         self.device = device
-        self.alpha = 0.1
         self.beta = beta
         self.initial_var = initial_var
         self.inverse_ema = inverse_ema
@@ -28,7 +26,7 @@ class PILRAdaptor:
 
     def step(self, surprise_value: float):
         surprise = torch.tensor(surprise_value, device=self.device)
-        self.ema_mu = (1 - self.alpha) * self.ema_mu + self.alpha * surprise
+        self.ema_mu = (1 - self.beta) * self.ema_mu + self.beta * surprise # Use beta for EMA of mu as well
         
         if self.inverse_ema:
             deviation = torch.abs(surprise - self.ema_mu)
@@ -115,11 +113,8 @@ class PILRStrategy(StrategyComponent):
         if gating_param_group is None or expert_param_group is None:
             raise ValueError("Optimizer must have 'gating' and 'experts' parameter groups for dual PILR strategy.")
 
-        gating_grads = [p.grad for p in gating_param_group['params'] if p.grad is not None]
-        expert_grads = [p.grad for p in expert_param_group['params'] if p.grad is not None]
-
-        gating_surprise = get_surprise_from_grads_torch(gating_grads)
-        expert_surprise = get_surprise_from_grads_torch(expert_grads)
+        gating_surprise = torch.tensor(pi_metrics.get('gating_surprise', 0.0), device=self.device)
+        expert_surprise = torch.tensor(pi_metrics.get('expert_surprise', 0.0), device=self.device)
 
         total_surprise = torch.tensor(pi_metrics['surprise'], device=self.device)
         if self.crisis_threshold is not None and total_surprise.item() >= self.crisis_threshold:

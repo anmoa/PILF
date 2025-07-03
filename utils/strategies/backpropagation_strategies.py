@@ -3,8 +3,8 @@ from typing import Any, Dict, List, Optional
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sigma_pi import get_surprise_from_grads_torch
 
+from utils.pi_calculator import get_surprise_from_grads_torch
 from utils.strategies.base_strategy import StrategyComponent
 from utils.types import StepResult
 

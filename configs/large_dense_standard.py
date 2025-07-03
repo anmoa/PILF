@@ -10,7 +10,7 @@ model_config = {
     'embed_dim': 64,
     'depth': 3,
     'num_heads': 4,
-    'mlp_dim': 64,
+    'mlp_ratio': 1.0, # Derived from embed_dim * mlp_ratio
     'dropout': 0.1,
 }
 
