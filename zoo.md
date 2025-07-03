@@ -21,3 +21,13 @@ A marathon rehearsal experiment without SVHN, following a `4 * (5+2+3)` epoch sc
 | :--:| :--:| :--:| :--:| :--:|
 | ~0.46M | ~0.46M | ~0.46M | ~0.46M | ~0.46M |
 | <img src="output/marathon-v3/img/20250628T105444-marathon_v3-large_moe_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T112443-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T122235-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T152659-marathon_v3-large_gpil_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250629T054009-marathon_v3-large_gpil_exp_mnist-Metrics.png" style="max-width:200px;"> |
+
+### Latest Architecture: 16x4 GaussMoE-SMK-PILR-D
+
+We are currently cleaning up and streamlining old test code. This result is from a system that has not yet introduced the generative memory reconstruction system. While theoretically we could re-train the gating routing network with a mixed sample set by introducing sample sampling to directly maintain multi-task capabilities, considering our ultimate goal is generative memory replay, we decided to temporarily skip this part. Stay tuned for more updates.
+
+| **16x4 GaussMoE-SMK-PILR-D** |
+| :--:|
+| ~0.46M |
+|[TensorBoard Logs](output/marathon_v3/large_gauss_moe_smk_pilr_d/20250703-075944/runs/20250703-075944/)|
+| <img src="output/marathon_v3/large_gauss_moe_smk_pilr_d/20250703-075944/img/screen-shot-1.png" style="max-width:200px;"> |

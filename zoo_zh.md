@@ -21,3 +21,13 @@
 | :--:| :--:| :--:| :--:| :--:|
 | ~0.46M | ~0.46M | ~0.46M | ~0.46M | ~0.46M |
 | <img src="output/marathon-v3/img/20250628T105444-marathon_v3-large_moe_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T112443-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T122235-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T152659-marathon_v3-large_gpil_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250629T054009-marathon_v3-large_gpil_exp_mnist-Metrics.png" style="max-width:200px;"> |
+
+### 最新架构：16x4 GaussMoE-SMK-PILR-D
+
+我们正在清理和精简旧的测试代码。这是尚未引入生成式记忆重构系统的结果——虽然理论上我们可以通过引入样本采样来重新用一个混合样本集训练门控路由网络来直接保持多任务能力，但考虑到我们的最终目标是生成式记忆回放，我们决定暂时跳过这个部分，敬请期待更多更新。
+
+| **16x4 GaussMoE-SMK-PILR-D** |
+| :--:|
+| ~0.46M |
+|[TensorBoard 日志](output/marathon_v3/large_gauss_moe_smk_pilr_d/20250703-075944/runs/20250703-075944/)|
+| <img src="output/marathon_v3/large_gauss_moe_smk_pilr_d/20250703-075944/img/screen-shot-1.png" style="max-width:200px;"> |
