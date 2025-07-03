@@ -63,17 +63,23 @@ To address the fundamental flaws of linear gating, we introduced **Gaussian Rout
 1. **Experts as Distributions**: Each expert is no longer a simple MLP but is defined by a learnable Gaussian distribution (parameterized by a mean `μ` and a log standard deviation `log_sigma`) in the input space, representing its "domain of knowledge."
 2. **Routing as Probability Calculation**: The routing process is no longer a simple linear mapping but involves calculating the log probability density of the input `x` under each expert's Gaussian distribution. This probability reflects how well the input matches an expert's "knowledge domain," which fundamentally promotes the **functional specialization** and **interpretability** of experts.
 
-### GenGaussMoE (Generative Gaussian-Routed MoE)
-
-The goal of this stage is to achieve a fully adaptive cognitive system by introducing a parallel generative model to produce synthetic data for "dream rehearsal," actively combating catastrophic forgetting and enabling self-consolidation of knowledge.
-
 ### PILR-S/D (Predictive Integrity-driven Learning Rate Scheduler)
 
 This is a dynamic learning rate control mechanism. Unfortunately, it often introduces more hyperparameters, and its effectiveness is still under investigation. Compared to the significant results of SMK, PILR's contribution is less remarkable at this stage.
 
+## Future Features
+
+### GenGaussMoE (Generative Gaussian-Routed MoE)
+
+The goal of this stage is to achieve a fully adaptive cognitive system by introducing a parallel generative model to produce synthetic data for "dream rehearsal," actively combating catastrophic forgetting and enabling self-consolidation of knowledge.
+
 ### Dynamic Top-K
 
 This mechanism will dynamically scale the number of activated experts, `k`, based on `Surprise` (`k = g(Surprise)`). Simple tasks will require fewer experts, while complex tasks will dynamically mobilize more. This is not yet implemented due to the current small scale of experiments and its relative simplicity to implement later.
+
+### Dynamic Schedules
+
+This mechanism allows the model to autonomously manage its learning schedule based on PI scores, aiming to maximize PI for all tasks. The model will review historical ΔACC (accuracy change) and ΔPI (predictive integrity change) from past learning cycles to select the most efficient learning path, ensuring that after a task is Grokked, it can autonomously switch to reviewing other tasks.
 
 ## Installation and Usage
 

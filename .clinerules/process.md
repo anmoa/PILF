@@ -1,66 +1,23 @@
 # 待办事项清单
 
-## Epic 0: 简化和整理代码
+## Epic 0: 简化和整理代码 (已完成)
 
-- [x] **将专家网络从 PILR 调制中移除**：专家网络将使用其默认学习率，并由 SMK 机制管理。通过将 `expert_initial_var` 设置为大值（例如1000.0）来实现“软禁用”PILR调制。
-- [x] **预测完整性 (PI) 计算系统重构**：
-  - **目标**：实现局域PI计算和全局PI汇总，并共享`alpha`和`gamma`超参数，以更好地反映分层BP和FP的动态。
-  - [x] **子任务1：修改`utils/pi_calculator.类`**
-    - [x] **引入`LocalPiCalculator`类**：
-      - 职责：计算单个模块的局域PI组成部分（`epsilon`, `tau`, `surprise`）。
-      - 输入：模块的梯度、损失和logits。
-      - `alpha`和`gamma`：由外部传入，不再是其成员变量。
-    - [x] **重命名`PiCalculator`为`GlobalPiCalculator`**：
-      - 职责：汇总所有局域PI组成部分，计算最终的全局PI。
-      - `__init__`：只接收`alpha`和`gamma`。
-      - `calculate`：接收包含所有局域PI组成部分的列表（或字典），进行汇总计算。
-  - [x] **子任务2：修改`utils/training.py`的`Trainer`类**
-    - [x] **实例化PI计算器**：在`__init__`中实例化`GlobalPiCalculator`。
-    - [x] **调整`train_one_epoch`**：
-      - 在门控网络和专家网络各自的反向传播之后，分别计算其局域的`surprise`、`epsilon`和`tau`。
-      - 收集这些局域PI组成部分。
-      - 在每个step结束时，调用`GlobalPiCalculator`的`calculate`方法，计算全局PI。
-      - 将全局PI传递给`PILRStrategy`。
-    - [x] **调整`validate`方法**：在验证阶段也进行局域PI的计算和汇总。
-  - [x] **子任务3：修改`utils/strategies/learning_rate_strategies.py`的`PILRStrategy`类**
-    - [x] **简化`_apply_dual`**：`PILRAdaptor`不再需要独立的`alpha`参数。
-    - [x] `PILRStrategy`从`Trainer`接收全局PI，并根据需要提取或计算适用于门控和专家的`surprise`值，传递给各自的`PILRAdaptor`。
-  - [x] **子任务4：更新`train.py`**
-    - [x] 调整`GlobalPiCalculator`的实例化方式。
-- [x] **将 `mlp_dim` 转换为 `mlp_ratio` 派生参数**：
-  - 在模型配置中引入 `mlp_ratio`，并从 `model_config['embed_dim'] * model_config['mlp_ratio']` 派生 `mlp_dim`。
-- [x] **移除未使用的 `ood_inhibition_c` 参数**：
-  - 从 `models/gaussian_moe.py` 中的 `GaussianMoELayer` 的 `__init__` 方法中移除 `ood_inhibition_c` 参数及其相关代码。
+- [x] **将专家网络从 PILR 调制中移除**
+- [x] **预测完整性 (PI) 计算系统重构**：实现局域 PI 计算和全局 PI 汇总，并共享`alpha`和`gamma`超参数。
+- [x] **将 `mlp_dim` 转换为 `mlp_ratio` 派生参数**
+- [x] **移除未使用的 `ood_inhibition_c` 参数**
 
-## Epic 1: 门控网络学习机制优化
+## Epic 1: 门控网络学习机制优化 (已完成)
 
-**目标：** 优化门控网络的学习机制，使其能够从 `top_k` 和 `min_k` 专家分布的差异中学习，从而更有效地指导专家选择。
+- [x] **门控损失函数设计与实现**：引入 `TopKMinKLoss` 类，并修改 `Trainer` 类以计算和应用门控损失。
 
-## 1.1. 门控损失函数设计与实现
-
-- [x] **修改 `utils/gating_loss.py`**:
-  - [x] **引入 `TopKMinKLoss` 类**:
-    - 继承 `nn.Module`。
-    - 接收 `log_probs` (所有专家的对数概率)、`top_k_indices` (当前批次 `top_k` 专家的索引) 和 `min_k_expert_indices` (由 `SurpriseMinKStrategy` 确定的 `min_k` 专家的索引) 作为输入。
-    - 计算 `top_k` 专家分布与 `min_k` 专家分布之间的差异。这可以通过多种方式实现，例如：
-      - 计算两个分布的 KL 散度。
-      - 计算两个分布的交叉熵。
-      - 惩罚 `top_k` 专家中不在 `min_k` 专家集合中的专家，或者奖励 `min_k` 专家中被 `top_k` 选中的专家。
-    - 返回一个标量损失值。
-- [x] **修改 `utils/training.py` 的 `Trainer` 类**:
-  - [x] **实例化 `TopKMinKLoss`**: 在 `__init__` 方法中实例化新的损失函数。
-  - [x] **调整 `_compute_gating_loss` 方法**:
-    - 接收 `all_routing_info` (包含 `log_probs` 和 `top_indices`) 和 `min_k_expert_indices_per_layer`。
-    - 调用 `TopKMinKLoss` 计算门控损失。
-    - 确保梯度正确反向传播到门控参数。
-
-## Epic 1.5: 惊奇度指标优化
+## Epic 1.5: 惊奇度指标优化 (已完成)
 
 **目标：** 优化惊奇度指标的命名和记录方式。
 
-- [ ] **将 `tqdm` 的 `surprise` 修改为 `router_surprise`**。
-- [ ] **将 `router_surprise` 加入记录系统**。
-- [ ] **`epoch log` 不再打印 `global avg surprise` 而是打印 `router avg surprise`，只在 `tensorboard` 中记录**。
+- [x] **将 `tqdm` 的 `surprise` 修改为 `router_surprise`**。
+- [x] **将 `router_surprise` 加入记录系统**。
+- [x] **`epoch log` 不再打印 `global avg surprise` 而是打印 `router avg surprise`，只在 `tensorboard` 中记录**。
 
 ## Epic 2: 集成 ΩID 信息动力学分析 (The ΩID Toolkit)
 
@@ -116,3 +73,41 @@
     - 对每个 epoch，为所有分析的专家对生成信息原子图表。
     - 可以生成一个矩阵图（heatmap），行和列都是专家索引，单元格的颜色表示特定信息原子（如协同 `Syn` 或冗余 `Red`）的强度。
     - 将图表保存到 `run-dir/oid_plots/{probe_name}/` 目录中。
+
+## Epic 3: 动态 Schedules
+
+**目标：** 允许模型根据 PI 分数自行安排学习规划，直到将所有任务的 PI 都最大化为止。模型将回顾过去学习周期中的 ΔACC（准确率变化）和 ΔPI（预测完整性变化），以选择效率最高的学习路径，并确保在完成当前任务的 Grokking 后，能够自主转向复习其他任务。
+
+### 3.1. 任务状态跟踪与评估
+
+- [ ] **修改 `utils/types.py`**:
+  - 引入 `TaskMetrics` TypedDict，用于存储每个任务的 `avg_pi`, `avg_accuracy`, `delta_pi`, `delta_accuracy` 等历史指标。
+- [ ] **修改 `utils/training.py` 的 `Trainer` 类**:
+  - 在 `__init__` 中添加 `self.task_history: Dict[str, List[TaskMetrics]]` 用于存储每个任务的历史指标。
+  - 在 `validate` 方法中，计算每个验证数据集的 `delta_pi` 和 `delta_accuracy`，并更新 `self.task_history`。
+  - 确保 `validate` 方法返回的 `ValidationResult` 包含 `delta_pi` 和 `delta_accuracy`。
+
+### 3.2. 动态调度器实现
+
+- [ ] **创建 `utils/dynamic_scheduler.py`**:
+  - 引入 `DynamicScheduler` 类。
+  - `__init__` 接收 `config` 和 `task_history`。
+  - `select_next_task(current_task: str) -> str`: 根据 `task_history` 中的 ΔACC 和 ΔPI，以及 Grokking 状态，选择下一个要训练的任务。
+    - **Grokking 检测逻辑**: 定义 Grokking 的判断标准（例如，PI 达到阈值且准确率稳定在高位）。
+    - **任务优先级逻辑**: 根据 ΔACC 和 ΔPI 评估任务的学习效率，优先选择需要改进或效率最高的任务。
+    - **复习机制**: 如果当前任务已 Grokking，则从其他未 Grokking 的任务中选择一个进行复习。
+  - `get_all_tasks() -> List[str]`: 从 `config.schedule['tasks']` 中提取所有训练任务名称。
+
+### 3.3. `train.py` 集成动态调度
+
+- [ ] **修改 `train.py` 的 `run_schedule` 函数**:
+  - 实例化 `DynamicScheduler`。
+  - 移除原有的静态 `config.schedule['tasks']` 循环。
+  - 在主训练循环中，每次迭代开始时，调用 `dynamic_scheduler.select_next_task()` 来获取当前要训练的任务。
+  - 调整训练和验证逻辑，以适应动态任务选择。
+  - 确保 `Trainer` 能够访问 `DynamicScheduler` 或其相关信息，以便在 `validate` 阶段更新任务历史。
+
+### 3.4. 配置更新
+
+- [ ] **修改 `utils/config.py`**:
+  - 允许在模型配置或调度配置中定义动态调度相关的参数（例如，Grokking 阈值，任务选择策略参数）。

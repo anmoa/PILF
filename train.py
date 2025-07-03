@@ -131,7 +131,7 @@ def run_schedule(
                     if avg_pi is not None:
                         writer.add_scalar(f'Validation/PI_Score/{val_ds_name}', avg_pi, global_step)
                     if avg_surprise is not None:
-                        writer.add_scalar(f'Validation/Surprise/{val_ds_name}', avg_surprise, global_step)
+                        writer.add_scalar(f'Validation/Router_Surprise/{val_ds_name}', avg_surprise, global_step)
                     if avg_tau is not None:
                         writer.add_scalar(f'Validation/Tau/{val_ds_name}', avg_tau, global_step)
                     if avg_gating_tau is not None:

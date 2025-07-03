@@ -20,6 +20,7 @@ class StepResult(TypedDict, total=False):
     surprise: float
     tau: float
     gating_tau: float
+    router_surprise: float
 
     # --- Gating-related Metrics ---
     gating_confidence_loss: float
