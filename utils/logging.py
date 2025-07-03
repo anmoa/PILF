@@ -13,17 +13,24 @@ class TensorBoardLogger:
             if not isinstance(value, (int, float)):
                 continue
 
-            tag_map = {
-                'loss': f'Loss/{scope}/{task_name}',
-                'accuracy': f'Accuracy/{scope}/{task_name}',
-            }
-
-            if key in tag_map:
-                tag = tag_map[key]
-            elif key.startswith('gating_'):
-                tag = f'Gating/{key.replace("gating_", "").replace("_", " ").title()}/{scope}/{task_name}'
-            else:
+            tag = None
+            if key in ['loss', 'accuracy', 'pi_score', 'surprise', 'tau']:
                 tag = f'{key.replace("_", " ").title()}/{scope}/{task_name}'
+            elif key.startswith('router_'):
+                metric_name = key.replace('router_', '').replace('_', ' ').title()
+                tag = f'Router/{metric_name}/{scope}/{task_name}'
+            elif key.startswith('vae_kl_loss'):
+                metric_name = key.replace('_', ' ').title()
+                tag = f'NarrativeGenerator/{metric_name}/{scope}/{task_name}'
+            elif key in ['gating_lr_mod', 'expert_lr_mod', 'gating_sigma', 'expert_sigma']:
+                metric_name = key.replace('_', ' ').title()
+                tag = f'PILR/{metric_name}/{scope}/{task_name}'
+            elif key.startswith('gating_'):
+                metric_name = key.replace('gating_', '').replace('_', ' ').title()
+                tag = f'Gating/{metric_name}/{scope}/{task_name}'
+            
+            if tag:
+                self.writer.add_scalar(tag, value, self.global_step)
             
             self.writer.add_scalar(tag, value, self.global_step)
         

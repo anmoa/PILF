@@ -26,23 +26,26 @@ class MoELayer(nn.Module):
 
         gating_logits = self.gating(x_flat)
         
-        weights, indices = torch.topk(gating_logits, self.top_k, dim=-1)
-        weights = torch.softmax(weights, dim=-1).to(x.dtype)
+        weights_top_k, top_indices = torch.topk(gating_logits, self.top_k, dim=-1)
+        weights_top_k = torch.softmax(weights_top_k, dim=-1).to(x.dtype)
         
-        dispatch_tensor = torch.zeros(x_flat.shape[0], self.num_experts, device=x.device, dtype=x.dtype)
-        dispatch_tensor.scatter_(1, indices, weights)
+        # 初始化一个全零的张量来存储选定专家的输出
+        expert_outputs_selected = torch.zeros(
+            x_flat.shape[0], self.num_experts, self.experts[0](x_flat).shape[-1], 
+            device=x_flat.device, dtype=x_flat.dtype
+        )
         
-        dispatched_x = dispatch_tensor.unsqueeze(-1) * x_flat.unsqueeze(1)
+        # 遍历每个 token，只对选定的 top_k 专家进行前向传播
+        for i in range(x_flat.shape[0]):
+            for k_idx in range(self.top_k):
+                expert_idx = top_indices[i, k_idx]
+                expert_outputs_selected[i, expert_idx, :] = self.experts[expert_idx](x_flat[i])
         
-        expert_outputs_list = []
-        for i in range(self.num_experts):
-            expert_input_i = dispatched_x[:, i, :]
-            expert_output_i = self.experts[i](expert_input_i)
-            expert_outputs_list.append(expert_output_i)
-            
-        expert_outputs = torch.stack(expert_outputs_list, dim=1)
-
-        combined_output = (dispatch_tensor.unsqueeze(-1) * expert_outputs).sum(dim=1)
+        # 创建一个稀疏的权重张量，只包含 top_k 专家的权重
+        sparse_weights = torch.zeros(x_flat.shape[0], self.num_experts, device=x.device, dtype=x.dtype)
+        sparse_weights.scatter_(1, top_indices, weights_top_k)
+        
+        combined_output = (sparse_weights.unsqueeze(-1) * expert_outputs_selected).sum(dim=1)
         
         final_output = combined_output.reshape(batch_size, num_tokens, -1)
         

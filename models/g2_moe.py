@@ -113,11 +113,27 @@ class GenGaussianMoELayer(GaussianMoELayer):
         
         weights = torch.softmax(final_log_probs, dim=-1)
         
-        _, top_indices_for_update = torch.topk(log_probs, self.top_k, dim=-1)
+        # 获取 top_k 专家的索引
+        _, top_indices_for_update = torch.topk(weights, self.top_k, dim=-1)
         
-        expert_outputs = torch.stack([expert(x_flat) for expert in self.experts], dim=1)
+        # 计算所有专家的输出
+        # 形状为 (num_tokens_flat, num_experts, out_features)
+        expert_outputs_all = torch.stack([expert(x_flat) for expert in self.experts], dim=1)
         
-        combined_output = (weights.unsqueeze(-1) * expert_outputs).sum(dim=1)
+        # 使用 gather 收集 top_k 专家的输出
+        # top_indices_for_update 的形状是 (num_tokens_flat, top_k)
+        # 我们需要将其扩展到 (num_tokens_flat, top_k, out_features)
+        top_indices_expanded = top_indices_for_update.unsqueeze(-1).expand(-1, -1, expert_outputs_all.shape[-1])
+        
+        # 从所有专家的输出中收集 top_k 专家的输出
+        expert_outputs_top_k = torch.gather(expert_outputs_all, 1, top_indices_expanded)
+        
+        # 重新归一化 top_k 专家的权重
+        weights_top_k = torch.gather(weights, 1, top_indices_for_update)
+        weights_top_k_normalized = weights_top_k / weights_top_k.sum(dim=-1, keepdim=True)
+        
+        # 使用重新归一化的权重和 top_k 专家的输出进行加权求和
+        combined_output = (weights_top_k_normalized.unsqueeze(-1) * expert_outputs_top_k).sum(dim=1)
         
         final_output = combined_output.reshape(batch_size, num_tokens, -1)
         

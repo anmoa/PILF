@@ -43,11 +43,24 @@ class GaussianMoELayer(nn.Module):
         
         weights = torch.softmax(final_log_probs, dim=-1)
         
-        _, top_indices_for_update = torch.topk(log_probs, self.top_k, dim=-1)
+        # 获取 top_k 专家的索引和权重
+        weights_top_k, top_indices_for_update = torch.topk(weights, self.top_k, dim=-1)
         
-        expert_outputs = torch.stack([expert(x_flat) for expert in self.experts], dim=1)
+        # 初始化一个全零的张量来存储选定专家的输出
+        # 形状为 (num_tokens_flat, num_experts, out_features)
+        expert_outputs_selected = torch.zeros(
+            x_flat.shape[0], self.num_experts, self.experts[0](x_flat).shape[-1], 
+            device=x_flat.device, dtype=x_flat.dtype
+        )
         
-        combined_output = (weights.unsqueeze(-1) * expert_outputs).sum(dim=1)
+        # 遍历每个 token，只对选定的 top_k 专家进行前向传播
+        for i in range(x_flat.shape[0]): # 遍历每个 token
+            for k_idx in range(self.top_k): # 遍历每个 token 的 top_k 专家
+                expert_idx = top_indices_for_update[i, k_idx]
+                expert_outputs_selected[i, expert_idx, :] = self.experts[expert_idx](x_flat[i])
+        
+        # 使用稀疏的 expert_outputs_selected 进行加权求和
+        combined_output = (weights.unsqueeze(-1) * expert_outputs_selected).sum(dim=1)
         
         final_output = combined_output.reshape(batch_size, num_tokens, -1)
         

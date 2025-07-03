@@ -5,13 +5,19 @@ import torch
 
 def get_surprise_from_grads_torch(gradients: List[torch.Tensor]) -> torch.Tensor:
     valid_gradients = [g for g in gradients if g is not None]
-    if not valid_gradients:
-        return torch.tensor(0.0)
-    all_grads = torch.cat([p.flatten() for p in valid_gradients])
-    return torch.norm(all_grads, p=2)
+    
+    # Determine the device for the initial zero tensor if needed
+    # If gradients is empty, default to 'cpu'. Otherwise, use the device of the first gradient.
+    device = gradients[0].device if gradients else 'cpu'
+
+    # Calculate sum of squares for each gradient and then sum them up
+    # Use a torch.tensor(0.0) as the starting point for sum to ensure the result is always a tensor.
+    total_norm_sq = sum((torch.sum(g**2) for g in valid_gradients), start=torch.tensor(0.0, device=device))
+    return torch.sqrt(total_norm_sq)
 
 def get_entropy_from_logits_torch(logits: torch.Tensor) -> torch.Tensor:
     probs = torch.softmax(logits, dim=-1)
+    # Add a small epsilon to log(probs) to prevent log(0)
     entropy = -torch.sum(probs * torch.log(probs + 1e-9), dim=-1)
     return entropy.mean()
 
@@ -41,21 +47,23 @@ class LocalPiCalculator:
         gradients: List[torch.Tensor],
         loss_epsilon: torch.Tensor,
         logits: torch.Tensor
-    ) -> Dict[str, float]:
+    ) -> Dict[str, torch.Tensor]: # Changed return type to torch.Tensor
         if not gradients:
+            # Ensure returned tensors are on the same device as loss_epsilon/logits
+            device = loss_epsilon.device if isinstance(loss_epsilon, torch.Tensor) else logits.device
             return {
-                "epsilon": 0.0,
-                "tau": 0.0,
-                "surprise": 0.0,
+                "epsilon": torch.tensor(0.0, device=device),
+                "tau": torch.tensor(0.0, device=device),
+                "surprise": torch.tensor(0.0, device=device),
             }
 
         tau_tensor = get_entropy_from_logits_torch(logits)
         surprise_tensor = get_surprise_from_grads_torch(gradients)
         
         return {
-            "epsilon": loss_epsilon.item(),
-            "tau": tau_tensor.item(),
-            "surprise": surprise_tensor.item(),
+            "epsilon": loss_epsilon, # Keep as tensor
+            "tau": tau_tensor, # Keep as tensor
+            "surprise": surprise_tensor, # Keep as tensor
         }
 
 class GlobalPiCalculator:
@@ -66,21 +74,22 @@ class GlobalPiCalculator:
 
     def calculate(
         self,
-        local_pi_components: List[Dict[str, float]]
-    ) -> Dict[str, float]:
+        local_pi_components: List[Dict[str, torch.Tensor]] # Changed to accept torch.Tensor
+    ) -> Dict[str, torch.Tensor]: # Changed return type to torch.Tensor
         if not local_pi_components:
             return {
-                "pi_score": 0.0,
-                "normalized_error": 0.0,
-                "cognitive_cost": 0.0,
-                "epsilon": 0.0,
-                "tau": 0.0,
-                "surprise": 0.0,
+                "pi_score": torch.tensor(0.0, device=self.device),
+                "normalized_error": torch.tensor(0.0, device=self.device),
+                "cognitive_cost": torch.tensor(0.0, device=self.device),
+                "epsilon": torch.tensor(0.0, device=self.device),
+                "tau": torch.tensor(0.0, device=self.device),
+                "surprise": torch.tensor(0.0, device=self.device),
             }
 
-        total_epsilon = torch.tensor(sum(c['epsilon'] for c in local_pi_components), device=self.device)
-        total_tau = torch.tensor(sum(c['tau'] for c in local_pi_components), device=self.device)
-        total_surprise = torch.tensor(sum(c['surprise'] for c in local_pi_components), device=self.device)
+        # Stack tensors and sum on GPU
+        total_epsilon = torch.stack([c['epsilon'] for c in local_pi_components]).sum()
+        total_tau = torch.stack([c['tau'] for c in local_pi_components]).sum()
+        total_surprise = torch.stack([c['surprise'] for c in local_pi_components]).sum()
 
         pi_metrics_tensors = calculate_pi_torch(
             epsilon=total_epsilon,
@@ -90,6 +99,5 @@ class GlobalPiCalculator:
             gamma=self.gamma
         )
         
-        pi_metrics_float = {k: v.item() for k, v in pi_metrics_tensors.items()}
-        
-        return pi_metrics_float
+        # Return tensors directly, no .item() here
+        return pi_metrics_tensors

@@ -34,7 +34,15 @@ def plot_expert_scatter(
             global_step = step_result['global_step']
             task_name = step_result['task_name']
             
-            expert_indices_dict = cast(Optional[Dict[int, List[int]]], step_result.get(f'{plot_type}_expert_indices'))
+            expert_indices_key = f'{plot_type}_expert_indices'
+            if plot_type == 'min_k':
+                expert_indices_key = 'min_k_expert_indices' # min_k is a specific key, not a prefix
+            elif plot_type == 'active':
+                expert_indices_key = 'active_expert_indices'
+            elif plot_type == 'updated':
+                expert_indices_key = 'updated_expert_indices'
+
+            expert_indices_dict = cast(Optional[Dict[int, List[int]]], step_result.get(expert_indices_key))
             if expert_indices_dict is not None and layer_idx in expert_indices_dict:
                 expert_ids = expert_indices_dict[layer_idx]
                 for expert_id in expert_ids:
@@ -62,7 +70,15 @@ def plot_expert_heatmap(
     # Populate the matrix
     for step in train_steps:
         task_idx = task_names.index(step['task_name'])
-        expert_indices_dict = cast(Optional[Dict[int, List[int]]], step.get(f'{plot_type}_expert_indices'))
+        expert_indices_key = f'{plot_type}_expert_indices'
+        if plot_type == 'min_k':
+            expert_indices_key = 'min_k_expert_indices'
+        elif plot_type == 'active':
+            expert_indices_key = 'active_expert_indices'
+        elif plot_type == 'updated':
+            expert_indices_key = 'updated_expert_indices'
+
+        expert_indices_dict = cast(Optional[Dict[int, List[int]]], step.get(expert_indices_key))
         if expert_indices_dict:
             for layer_idx, expert_ids in expert_indices_dict.items():
                 if layer_idx < num_layers:

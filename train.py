@@ -127,18 +127,18 @@ def run_schedule(
                     val_loader = DataLoader(test_dataset, batch_size=config.schedule['train_config']['batch_size'], shuffle=False)
                     avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_loss = trainer.validate(val_loader, global_step, val_ds_name)
                     
-                    writer.add_scalar(f'Validation/Loss/{val_ds_name}', avg_loss, global_step)
-                    writer.add_scalar(f'Validation/Accuracy/{val_ds_name}', accuracy, global_step)
+                    writer.add_scalar(f'Loss/Validation/{val_ds_name}', avg_loss, global_step)
+                    writer.add_scalar(f'Accuracy/Validation/{val_ds_name}', accuracy, global_step)
                     if avg_pi is not None:
-                        writer.add_scalar(f'Validation/PI_Score/{val_ds_name}', avg_pi, global_step)
+                        writer.add_scalar(f'PI_Score/Validation/{val_ds_name}', avg_pi, global_step)
                     if avg_surprise is not None:
-                        writer.add_scalar(f'Validation/Router_Surprise/{val_ds_name}', avg_surprise, global_step)
+                        writer.add_scalar(f'Router/Surprise/Validation/{val_ds_name}', avg_surprise, global_step)
                     if avg_tau is not None:
-                        writer.add_scalar(f'Validation/Tau/{val_ds_name}', avg_tau, global_step)
+                        writer.add_scalar(f'Tau/Validation/{val_ds_name}', avg_tau, global_step)
                     if avg_gating_tau is not None:
-                        writer.add_scalar(f'Validation/Gating_Tau/{val_ds_name}', avg_gating_tau, global_step)
+                        writer.add_scalar(f'Gating/Tau/Validation/{val_ds_name}', avg_gating_tau, global_step)
                     if avg_gating_loss is not None:
-                        writer.add_scalar(f'Validation/Gating_Loss/{val_ds_name}', avg_gating_loss, global_step)
+                        writer.add_scalar(f'Gating/Loss/Validation/{val_ds_name}', avg_gating_loss, global_step)
                     val_logs[val_ds_name].append((global_step, accuracy))
                 continue
 
@@ -171,6 +171,11 @@ def run_schedule(
                 writer.add_figure(f'Expert Dynamics/Active Experts Heatmap (Task: {task_name})', fig_heatmap_active_task, global_step)
                 plt.close(fig_heatmap_active_task)
 
+                if any('min_k_expert_indices' in r for r in all_train_results):
+                    fig_heatmap_min_k_task = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'min_k')
+                    writer.add_figure(f'Expert Dynamics/Min-K Experts Heatmap (Task: {task_name})', fig_heatmap_min_k_task, global_step)
+                    plt.close(fig_heatmap_min_k_task)
+
                 if any('updated_expert_indices' in r for r in all_train_results):
                     fig_heatmap_updated_task = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'updated')
                     writer.add_figure(f'Expert Dynamics/Updated Experts Heatmap (Task: {task_name})', fig_heatmap_updated_task, global_step)
@@ -186,18 +191,18 @@ def run_schedule(
         _, test_dataset = get_dataset(val_ds_name, config.model['img_size'], config.model['patch_size'])
         val_loader = DataLoader(test_dataset, batch_size=config.schedule['train_config']['batch_size'], shuffle=False)
         avg_loss, accuracy, avg_pi, avg_surprise, avg_tau, avg_gating_tau, avg_gating_loss = trainer.validate(val_loader, global_step, val_ds_name)
-        writer.add_scalar(f'Validation/Loss/{val_ds_name}', avg_loss, global_step)
-        writer.add_scalar(f'Validation/Accuracy/{val_ds_name}', accuracy, global_step)
+        writer.add_scalar(f'Loss/Validation/{val_ds_name}', avg_loss, global_step)
+        writer.add_scalar(f'Accuracy/Validation/{val_ds_name}', accuracy, global_step)
         if avg_pi is not None:
-            writer.add_scalar(f'Validation/PI_Score/{val_ds_name}', avg_pi, global_step)
+            writer.add_scalar(f'PI_Score/Validation/{val_ds_name}', avg_pi, global_step)
         if avg_surprise is not None:
-            writer.add_scalar(f'Validation/Surprise/{val_ds_name}', avg_surprise, global_step)
+            writer.add_scalar(f'Router/Surprise/Validation/{val_ds_name}', avg_surprise, global_step)
         if avg_tau is not None:
-            writer.add_scalar(f'Validation/Tau/{val_ds_name}', avg_tau, global_step)
+            writer.add_scalar(f'Tau/Validation/{val_ds_name}', avg_tau, global_step)
         if avg_gating_tau is not None:
-            writer.add_scalar(f'Validation/Gating_Tau/{val_ds_name}', avg_gating_tau, global_step)
+            writer.add_scalar(f'Gating/Tau/Validation/{val_ds_name}', avg_gating_tau, global_step)
         if avg_gating_loss is not None:
-            writer.add_scalar(f'Validation/Gating_Loss/{val_ds_name}', avg_gating_loss, global_step)
+            writer.add_scalar(f'Gating/Loss/Validation/{val_ds_name}', avg_gating_loss, global_step)
 
     final_model_path = os.path.join(output_dir, "checkpoints", f"epoch_{global_step}_final.pth")
     torch.save(model.state_dict(), final_model_path)
@@ -211,6 +216,41 @@ def run_schedule(
         num_layers = config.model.get('depth', 1)
         num_experts = config.model.get('num_experts', 1)
         img_dir = os.path.join(output_dir, "img")
+
+        # Active Experts
+        fig_scatter_active = plot_expert_scatter(all_train_results, num_layers, num_experts, 'active')
+        fig_scatter_active.savefig(os.path.join(img_dir, "active_experts_scatter.png"))
+        writer.add_figure('Expert Dynamics/Active Experts Scatter', fig_scatter_active, global_step)
+        plt.close(fig_scatter_active)
+
+        fig_heatmap_active = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'active')
+        fig_heatmap_active.savefig(os.path.join(img_dir, "active_experts_heatmap.png"))
+        writer.add_figure('Expert Dynamics/Active Experts Heatmap', fig_heatmap_active, global_step)
+        plt.close(fig_heatmap_active)
+
+        # Updated Experts
+        if any('updated_expert_indices' in r for r in all_train_results):
+            fig_scatter_updated = plot_expert_scatter(all_train_results, num_layers, num_experts, 'updated')
+            fig_scatter_updated.savefig(os.path.join(img_dir, "updated_experts_scatter.png"))
+            writer.add_figure('Expert Dynamics/Updated Experts Scatter', fig_scatter_updated, global_step)
+            plt.close(fig_scatter_updated)
+
+            fig_heatmap_updated = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'updated')
+            fig_heatmap_updated.savefig(os.path.join(img_dir, "updated_experts_heatmap.png"))
+            writer.add_figure('Expert Dynamics/Updated Experts Heatmap', fig_heatmap_updated, global_step)
+            plt.close(fig_heatmap_updated)
+
+        # Min-K Experts
+        if any('min_k_expert_indices' in r for r in all_train_results):
+            fig_scatter_min_k = plot_expert_scatter(all_train_results, num_layers, num_experts, 'min_k')
+            fig_scatter_min_k.savefig(os.path.join(img_dir, "min_k_experts_scatter.png"))
+            writer.add_figure('Expert Dynamics/Min-K Experts Scatter', fig_scatter_min_k, global_step)
+            plt.close(fig_scatter_min_k)
+
+            fig_heatmap_min_k = plot_expert_heatmap(all_train_results, num_layers, num_experts, 'min_k')
+            fig_heatmap_min_k.savefig(os.path.join(img_dir, "min_k_experts_heatmap.png"))
+            writer.add_figure('Expert Dynamics/Min-K Experts Heatmap', fig_heatmap_min_k, global_step)
+            plt.close(fig_heatmap_min_k)
 
         fig_scatter_active = plot_expert_scatter(all_train_results, num_layers, num_experts, 'active')
         fig_scatter_active.savefig(os.path.join(img_dir, "active_experts_scatter.png"))
