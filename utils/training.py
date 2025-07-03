@@ -1,12 +1,17 @@
+import collections  # Import collections for deque
 from typing import Any, Dict, List, Optional, Sized, Tuple, cast
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F  # Import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+from models.memory_gaussian_moe import (
+    MemoryGaussianMoEVisionTransformer,  # Import MemoryGaussianMoEVisionTransformer
+)
 from utils.gating_loss import TopKMinKLoss
 from utils.logging import TensorBoardLogger
 from utils.pi_calculator import GlobalPiCalculator, LocalPiCalculator
@@ -28,6 +33,8 @@ class Trainer:
         strategy_components: List[StrategyComponent],
         device: torch.device,
         writer: SummaryWriter,
+        routing_history_length: int = 10, # New parameter for history length
+        historical_routing_loss_weight: float = 0.1, # New parameter for loss weight
     ):
         self.model = model
         self.optimizer = optimizer
@@ -39,6 +46,11 @@ class Trainer:
         self.writer = writer
         self.min_k: Optional[int] = None
         self.top_k: Optional[int] = None
+        self.routing_history_length = routing_history_length # Now refers to number of epochs
+        self.historical_routing_loss_weight = historical_routing_loss_weight
+        # Stores aggregated routing weights per MoE layer, per task, per epoch
+        # Key: task_name, Value: deque of lists of aggregated routing weights (one list per MoE layer)
+        self.routing_history_buffers: Dict[str, collections.deque[List[torch.Tensor]]] = collections.defaultdict(lambda: collections.deque(maxlen=self.routing_history_length))
 
         for component in self.strategy_components:
             if isinstance(component, SurpriseMinKStrategy):
@@ -86,7 +98,7 @@ class Trainer:
             current_global_pi_metrics = self.global_pi_calculator.calculate(expert_pi_components) if expert_pi_components else {"pi_score": torch.tensor(0.0, device=self.device)}
             current_pi_score = current_global_pi_metrics.get("pi_score", torch.tensor(0.0, device=self.device))
 
-            output = self.model(data, pi_score=current_pi_score, use_narrative_generator=use_narrative_generator)
+            output = self.model(data)
             
             all_routing_info = None
             if isinstance(output, tuple) and len(output) > 1 and isinstance(output[1], list):
@@ -96,13 +108,62 @@ class Trainer:
 
             expert_loss = self.loss_fn(logits, target)
             
-            vae_kl_loss = torch.tensor(0.0, device=self.device)
+            historical_routing_loss_val = torch.tensor(0.0, device=self.device)
+
             if all_routing_info:
-                for info in all_routing_info:
-                    if 'vae_kl_loss' in info:
-                        vae_kl_loss += info['vae_kl_loss']
+                # Temporarily store current batch's routing weights for aggregation at epoch end
+                if not hasattr(self, '_current_epoch_routing_weights'):
+                    self._current_epoch_routing_weights = collections.defaultdict(list)
+                for i, layer_info in enumerate(all_routing_info):
+                    if "weights" in layer_info:
+                        self._current_epoch_routing_weights[i].append(layer_info["weights"].detach())
+
+                # Calculate historical routing loss (using epoch-level history)
+                current_task_name = task_name # Use the task_name passed to train_one_epoch
+                if isinstance(self.model, MemoryGaussianMoEVisionTransformer) and \
+                   current_task_name in self.routing_history_buffers and \
+                   len(self.routing_history_buffers[current_task_name]) > 0:
+                    
+                    # Get the latest PI score for the current task
+                    # Use current_pi_score from the beginning of the batch loop
+                    current_pi_score = current_global_pi_metrics.get("pi_score", torch.tensor(1.0, device=self.device))
+                    
+                    # Weight for historical influence: (1 - PI)
+                    historical_influence_weight = (1.0 - current_pi_score).clamp(0.0, 1.0) # Ensure between 0 and 1
+                    
+                    # Aggregate historical weights for the current task
+                    # routing_history_buffers stores List[torch.Tensor] for each epoch
+                    # We need to average across epochs first, then across tokens/batches
+                    
+                    # Stack all historical epoch-level aggregated weights for this task
+                    # Each element in self.routing_history_buffers[current_task_name] is a List[torch.Tensor]
+                    # where each torch.Tensor is the aggregated routing weight for one MoE layer for one epoch
+                    all_historical_epoch_weights_per_layer = collections.defaultdict(list)
+                    for epoch_weights_list in self.routing_history_buffers[current_task_name]:
+                        for layer_idx, layer_agg_weights in enumerate(epoch_weights_list):
+                            all_historical_epoch_weights_per_layer[layer_idx].append(layer_agg_weights)
+                    
+                    for i, layer_info in enumerate(all_routing_info):
+                        if "weights" in layer_info and i in all_historical_epoch_weights_per_layer:
+                            current_weights = layer_info["weights"]
+                            
+                            # Average across all historical epoch-level aggregated weights for this specific layer
+                            historical_weights_aggregated_for_layer = torch.mean(torch.stack(all_historical_epoch_weights_per_layer[i]), dim=0)
+                            
+                            # Mix current and historical weights based on PI
+                            # This mixing happens at the current batch level for the loss calculation
+                            mixed_weights = (1.0 - historical_influence_weight) * current_weights + \
+                                            historical_influence_weight * historical_weights_aggregated_for_layer
+                            
+                            # Calculate KL divergence between current weights and mixed weights
+                            # Add a small epsilon for numerical stability if using log
+                            epsilon = 1e-9
+                            kl_div = F.kl_div(F.log_softmax(current_weights + epsilon, dim=-1),
+                                              F.log_softmax(mixed_weights + epsilon, dim=-1),
+                                              reduction='batchmean')
+                            historical_routing_loss_val += kl_div
             
-            total_loss = expert_loss + vae_kl_loss
+            total_loss = expert_loss
             
             gating_loss_val = torch.tensor(0.0, device=self.device)
             min_k_expert_indices_per_layer = None
@@ -126,20 +187,25 @@ class Trainer:
                     gating_loss_val = total_gating_loss / len(all_routing_info)
                     total_loss += gating_loss_val / accumulation_steps # Add gating loss to total loss
             
+            # Add historical routing loss to total loss
+            if isinstance(self.model, MemoryGaussianMoEVisionTransformer) and historical_routing_loss_val > 0:
+                total_loss += self.historical_routing_loss_weight * historical_routing_loss_val / accumulation_steps
+            
             total_loss.backward() # Single backward pass
             
             # Collect gradients after backward pass
             expert_grads = [p.grad for p in self.expert_and_base_params if p.grad is not None]
             expert_pi_components.append(self.local_pi_calculator.calculate(expert_grads, expert_loss, logits))
 
-            gating_grads = [p.grad for p in self.gating_params if p.grad is not None]
-            gating_local_pi = self.local_pi_calculator.calculate(gating_grads, gating_loss_val, logits)
-            gating_pi_components.append(gating_local_pi)
-            router_surprise_sum += gating_local_pi['surprise'].item()
-            router_surprise_count += 1
-            if 'tau' in gating_local_pi:
-                gating_tau_sum += gating_local_pi['tau'].item()
-                gating_tau_count += 1
+            if self.is_moe_model: # Only collect gating grads for MoE models
+                gating_grads = [p.grad for p in self.gating_params if p.grad is not None]
+                gating_local_pi = self.local_pi_calculator.calculate(gating_grads, gating_loss_val, logits)
+                gating_pi_components.append(gating_local_pi)
+                router_surprise_sum += gating_local_pi['surprise'].item()
+                router_surprise_count += 1
+                if 'tau' in gating_local_pi:
+                    gating_tau_sum += gating_local_pi['tau'].item()
+                    gating_tau_count += 1
 
 
             if (batch_idx + 1) % accumulation_steps == 0:
@@ -164,8 +230,8 @@ class Trainer:
                     "accuracy": accuracy,
                     "task_name": task_name,
                     "router_surprise": router_surprise_sum / router_surprise_count if router_surprise_count > 0 else 0.0,
-                    "vae_kl_loss": vae_kl_loss.item() if isinstance(vae_kl_loss, torch.Tensor) else vae_kl_loss,
                     "gating_tau": gating_tau_sum / gating_tau_count if gating_tau_count > 0 else 0.0,
+                    "historical_routing_loss": historical_routing_loss_val.item() if isinstance(historical_routing_loss_val, torch.Tensor) else historical_routing_loss_val, # Log historical routing loss
                 }
                 step_result.update(cast(StepResult, {k: v.item() for k, v in global_pi_metrics.items()}))
                 
@@ -185,7 +251,7 @@ class Trainer:
                     acc=f"{step_result.get('accuracy', 0.0):.2f}%",
                     pi=f"{step_result.get('pi_score', 0.0):.4f}",
                     router_surprise=f"{step_result.get('router_surprise', 0.0):.4f}",
-                    vae_kl_loss=f"{step_result.get('vae_kl_loss', 0.0):.4f}",
+                    historical_routing_loss=f"{step_result.get('historical_routing_loss', 0.0):.4f}", # Display historical routing loss
                     lr_mod=f"{step_result.get('lr_mod', 1.0):.4f}"
                 )
                 router_surprise_sum = 0.0
@@ -193,6 +259,24 @@ class Trainer:
                 gating_tau_sum = 0.0
                 gating_tau_count = 0
         
+        # Aggregate and store epoch-level routing weights at the end of the epoch
+        if hasattr(self, '_current_epoch_routing_weights') and self._current_epoch_routing_weights:
+            aggregated_epoch_weights_list: List[torch.Tensor] = []
+            for i in sorted(self._current_epoch_routing_weights.keys()):
+                # Concatenate all batch weights for this layer in the current epoch
+                if self._current_epoch_routing_weights[i]:
+                    # Stack first, then mean across the batch dimension (dim=0)
+                    # This handles variable batch sizes by averaging over all tokens collected in the epoch
+                    all_batch_weights_for_layer = torch.cat(self._current_epoch_routing_weights[i], dim=0)
+                    aggregated_layer_weights = torch.mean(all_batch_weights_for_layer, dim=0)
+                    aggregated_epoch_weights_list.append(aggregated_layer_weights)
+            
+            if aggregated_epoch_weights_list:
+                self.routing_history_buffers[task_name].append(aggregated_epoch_weights_list)
+            
+            # Clear for next epoch
+            del self._current_epoch_routing_weights
+
         return global_step, epoch_results
 
     def _compute_gating_loss(
@@ -229,7 +313,7 @@ class Trainer:
         for data, target in val_loader:
             data, target = data.to(self.device), target.to(self.device)
             
-            output = self.model(data, use_narrative_generator=True)
+            output = self.model(data)
             all_routing_info = None
             if isinstance(output, tuple) and len(output) > 1 and isinstance(output[1], list):
                 logits, all_routing_info = output

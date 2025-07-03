@@ -3,7 +3,7 @@
 
 # 1. Defines the core model architecture
 model_config = {
-    'model_type': 'gen_gaussian_moe',
+    'model_type': 'memory_gaussian_moe', # Changed to memory_gaussian_moe
     'img_size': 28,       # MNIST original size
     'patch_size': 4,      # 28/4 = 7x7 patches
     'in_channels': 3,     # Dataloader repeats channel to 3
@@ -15,8 +15,6 @@ model_config = {
     'dropout': 0.1,
     'num_experts': 16,
     'top_k': 4,
-    'use_vae': False, # 使用简化版的调制参数生成器，而不是VAE
-    'max_narrative_params_ratio': 0.1, # Max ratio of narrative generator params to base model params
 }
 
 # 2. Defines the chain of update strategies to be applied in order.
@@ -49,3 +47,9 @@ pilr_config = {
 
 # 4. Gating-specific loss configuration (DEPRECATED)
 gating_loss_config = None
+
+# New parameters for MemoryGaussianMoE
+trainer_config = {
+    'routing_history_length': 10,
+    'historical_routing_loss_weight': 0.1,
+}

@@ -9,7 +9,7 @@
   - `LinearMoE`: 线性门控 MoE。门控机制为 `nn.Linear`。
   - `GaussMoE`: 高斯路由 MoE。核心特征是使用高斯分布进行专家路由。
   - `GaussMoE-D`: 动态 `top_k` 的高斯路由 MoE。
-  - `GenGaussMoE`: 生成式高斯路由 MoE。在架构层面集成了**有状态的叙事生成器** (`Narrative Generator`)，该生成器能够捕捉跨训练时间步的上下文，并产生“内部叙事流”以指导路由决策，从而缓解灾难性遗忘。
+  - `MemoryGaussianMoE`: 记忆高斯路由 MoE。通过在反向传播中利用历史路由分布来增强模型的知识隔离和梯度正交化能力。
 - **定制优化器**
   - `LGO`: 局部门控优化器 (Local Gating Optimizer)。通过局部损失（置信度与负载均衡）独立优化门控网络。
 - **学习率引擎**

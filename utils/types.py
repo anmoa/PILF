@@ -26,7 +26,7 @@ class StepResult(TypedDict, total=False):
     gating_confidence_loss: float
     gating_load_balancing_loss: float
     gating_selection_accuracy: float
-    vae_kl_loss: float
+    historical_routing_loss: float # New metric for MemoryGaussianMoE
 
     # --- PISA/PILR-S Strategy Metrics ---
     lr_mod: float

@@ -93,6 +93,12 @@
 - [ ] **修改 `utils/config.py`**:
   - 允许在模型配置或调度配置中定义动态调度相关的参数（例如，Grokking 阈值，任务选择策略参数）。
 
-## Epic 4: 实现 GenGaussMoE (已完成)
+## Epic 4: 实现 MemoryGaussianMoE (已完成)
+
+**总结**: 已成功实现 MemoryGaussianMoE 架构。
+
+1. **历史路由分布收集**: 在 `Trainer` 类中引入了历史路由分布缓冲区，现在以**周期（epoch）**为级别收集并聚合每个 MoE 层的路由权重，而非之前的批次级别。
+2. **历史路由损失计算**: 在训练过程中，计算了一个新的 `historical_routing_loss`。该损失通过将当前路由分布与聚合的历史路由分布进行 **(1 - PI) 比例的混合**后，计算两者之间的 KL 散度。这意味着当模型的预测完整性 (PI) 较低时，模型会更倾向于利用历史路由信息进行知识巩固，从而增强知识隔离和实现自然的梯度正交化。
+3. **相关文件更新**: `models/g2_moe.py` 已删除，`models/memory_gaussian_moe.py` 已创建并更新，`models/__init__.py`、`utils/training.py`、`utils/types.py`、`readme.md`、`readme_zh.md` 以及新的配置文件 `configs/large_memory_gauss_moe_smk_pilr_d.py` 均已更新以支持新功能。
 
 ## Epic 5: 已完成统一日志和可视化系统。 (已完成)

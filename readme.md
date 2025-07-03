@@ -69,9 +69,11 @@ This is a dynamic learning rate control mechanism. Unfortunately, it often intro
 
 ## Future Features
 
-### GenGaussMoE (Generative Gaussian-Routed MoE)
+### MemoryGaussianMoE
 
-The goal of this stage is to achieve a fully adaptive cognitive system by introducing a parallel generative model to produce synthetic data for "dream rehearsal," actively combating catastrophic forgetting and enabling self-consolidation of knowledge.
+This mechanism introduces a novel approach to enhance knowledge isolation and achieve natural gradient orthogonalization within Mixture-of-Experts (MoE) models. Instead of explicit memory replay, MemoryGaussianMoE leverages the model's own historical routing decisions. It collects and aggregates past routing distributions from each MoE layer into a buffer, forming a dynamic representation of the model's historical expert activation patterns.
+
+A new `historical_routing_loss` term is then introduced during backpropagation. This loss quantifies the divergence between the current batch's routing distribution and the aggregated historical context. By incorporating this loss, the router's gradient updates are implicitly guided to maintain a learned "orthogonality" or consistency with its past routing behavior. This enables the model to adapt to new tasks while naturally preserving previously acquired knowledge, effectively mitigating catastrophic forgetting.
 
 ### Dynamic Top-K
 
