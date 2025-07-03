@@ -8,13 +8,11 @@ class GaussianMoELayer(nn.Module):
     """
     A Mixture of Experts layer using Gaussian-based routing with adaptive inhibition.
     """
-    def __init__(self, in_features, hidden_features, out_features, num_experts, top_k=2, 
-                 ood_inhibition_c=2.0):
+    def __init__(self, in_features, hidden_features, out_features, num_experts, top_k=2):
         super().__init__()
         self.num_experts = num_experts
         self.top_k = top_k
         self.in_features = in_features
-        self.ood_inhibition_c = ood_inhibition_c
         
         self.expert_mus = nn.Parameter(torch.randn(num_experts, in_features))
         self.expert_log_sigmas = nn.Parameter(torch.zeros(num_experts, in_features))
@@ -43,9 +41,6 @@ class GaussianMoELayer(nn.Module):
         
         final_log_probs = log_probs
         
-        # The routing inhibition logic will be handled by a separate PILRStrategy component
-        # in train.py, which will modify gradients or learning rates based on routing confidence.
-
         weights = torch.softmax(final_log_probs, dim=-1)
         
         _, top_indices_for_update = torch.topk(log_probs, self.top_k, dim=-1)
@@ -66,7 +61,7 @@ class GaussianMoELayer(nn.Module):
 
 class GaussianMoEVisionTransformer(VisionTransformer):
     """A Vision Transformer with GaussianMoE layers."""
-    def __init__(self, num_experts=8, top_k=2, ood_inhibition_c=2.0, **kwargs):
+    def __init__(self, num_experts=8, top_k=2, **kwargs):
         super().__init__(**kwargs)
 
         embed_dim = kwargs.get('embed_dim', 128)
@@ -80,7 +75,6 @@ class GaussianMoEVisionTransformer(VisionTransformer):
                 out_features=embed_dim,
                 num_experts=num_experts,
                 top_k=top_k,
-                ood_inhibition_c=ood_inhibition_c,
             )
 
     def forward(self, x):

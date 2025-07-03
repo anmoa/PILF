@@ -6,7 +6,7 @@ from .backpropagation_strategies import (
 )
 from .config import load_config
 from .datasets import get_dataset
-from .gating_loss import ConfidenceLoss, GatingSelectionLoss, LoadBalancingLoss
+from .gating_loss import ConfidenceLoss, LoadBalancingLoss, TopKMinKLoss
 from .learning_rate_strategies import PILRAdaptor, PILRStrategy, pilr_modulation
 from .logging import TensorBoardLogger
 from .optimizers import create_optimizer
@@ -33,8 +33,8 @@ __all__ = [
     'load_config',
     'get_dataset',
     'ConfidenceLoss',
-    'GatingSelectionLoss',
     'LoadBalancingLoss',
+    'TopKMinKLoss',
     'PILRAdaptor',
     'PILRStrategy',
     'pilr_modulation',

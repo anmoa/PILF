@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from utils.gating_loss import GatingSelectionLoss
+from utils.gating_loss import TopKMinKLoss
 from utils.logging import TensorBoardLogger
 from utils.pi_calculator import PiCalculator
 from utils.strategies.backpropagation_strategies import SurpriseMinKStrategy
@@ -25,7 +25,6 @@ class Trainer:
         strategy_components: List[StrategyComponent],
         device: torch.device,
         writer: SummaryWriter,
-        gating_loss_config: Optional[Dict[str, float]] = None, # This will be deprecated
     ):
         self.model = model
         self.optimizer = optimizer
@@ -44,7 +43,7 @@ class Trainer:
         if hasattr(self.model, 'top_k'):
             self.top_k = self.model.top_k
         else:
-            self.top_k = 1 # Default to 1 if not specified, though MoE models should have it
+            self.top_k = 1
 
         self.is_moe_model = hasattr(self.model, 'get_param_groups')
         if self.is_moe_model:
@@ -54,7 +53,7 @@ class Trainer:
             self.expert_params = param_groups[2]['params']
             self.expert_and_base_params = self.base_params + self.expert_params
             
-            self.gating_accuracy_loss_fn = GatingSelectionLoss()
+            self.top_k_min_k_loss_fn = TopKMinKLoss()
 
     def train_one_epoch(
         self,
@@ -65,7 +64,7 @@ class Trainer:
         task_name: str,
     ) -> Tuple[int, List[StepResult]]:
         self.model.train()
-        self.optimizer.zero_grad() # Clear gradients at the start of each epoch
+        self.optimizer.zero_grad()
 
         epoch_results: List[StepResult] = []
 
@@ -86,14 +85,12 @@ class Trainer:
             gating_loss_val = 0.0
             min_k_expert_indices_per_layer = None
 
-            expert_loss.backward(retain_graph=True) # Compute gradients for expert and base parameters
+            expert_loss.backward(retain_graph=True)
             
-            # Calculate PI metrics before applying strategies that might modify gradients
             all_grads = [p.grad for p in self.model.parameters() if p.grad is not None]
             pi_metrics = self.pi_monitor.calculate(all_grads, expert_loss, logits)
 
             min_k_expert_indices_per_layer = None
-            # Apply strategies that might modify gradients (e.g., SurpriseMinKStrategy)
             for component in self.strategy_components:
                 if isinstance(component, SurpriseMinKStrategy):
                     all_top_indices_pre = [info['top_indices'] for info in all_routing_info] if all_routing_info else None
@@ -104,30 +101,29 @@ class Trainer:
                 all_routing_info, min_k_expert_indices_per_layer, accumulation_steps
             )
             if gating_loss_tensor is not None:
-                gating_loss_tensor.backward() # Compute gradients for gating parameters, accumulating if needed
+                gating_loss_tensor.backward()
 
-            if (batch_idx + 1) % accumulation_steps == 0: # Perform optimization step
+            if (batch_idx + 1) % accumulation_steps == 0:
                 if hasattr(self.model, 'zero_inactive_expert_grads') and all_routing_info:
-                    self.model.zero_inactive_expert_grads(all_routing_info) # Zero out gradients for inactive experts
+                    self.model.zero_inactive_expert_grads(all_routing_info)
                 
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0) # Clip gradients
-                self.optimizer.step() # Perform optimizer step
-                self.optimizer.zero_grad() # Clear gradients after step
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.optimizer.step()
+                self.optimizer.zero_grad()
                 
-                pred = logits.argmax(dim=1, keepdim=True) # Calculate accuracy
+                pred = logits.argmax(dim=1, keepdim=True)
                 correct = pred.eq(target.view_as(pred)).sum().item()
                 accuracy = 100. * correct / len(data)
                 
                 step_result: StepResult = {
                     "global_step": global_step,
                     "loss": expert_loss.item(),
-                    "gating_selection_accuracy": gating_loss_val, # Now represents the BCE loss
+                    "gating_selection_accuracy": gating_loss_val,
                     "accuracy": accuracy,
                     "task_name": task_name,
                 }
                 step_result.update(cast(StepResult, pi_metrics))
                 
-                # Apply strategies that might modify learning rates or collect additional metrics
                 for component in self.strategy_components:
                     all_top_indices = [info['top_indices'] for info in all_routing_info] if all_routing_info else None
                     component_metrics = component.apply(self.model, self.optimizer, pi_metrics, all_routing_info, all_top_indices)
@@ -144,7 +140,7 @@ class Trainer:
                     acc=f"{step_result.get('accuracy', 0.0):.2f}%",
                     pi=f"{step_result.get('pi_score', 0.0):.4f}",
                     surprise=f"{step_result.get('surprise', 0.0):.4f}",
-                    lr_mod=f"{step_result.get('lr_mod', 1.0):.4f}" # Add lr_mod to postfix
+                    lr_mod=f"{step_result.get('lr_mod', 1.0):.4f}"
                 )
         
         return global_step, epoch_results
@@ -161,7 +157,7 @@ class Trainer:
         for data, target in val_loader:
             data, target = data.to(self.device), target.to(self.device)
             
-            with torch.enable_grad(): # Keep grad enabled for pi_metrics calculation
+            with torch.enable_grad():
                 output = self.model(data)
                 all_routing_info = None
                 if isinstance(output, tuple) and len(output) > 1 and isinstance(output[1], list):
@@ -170,7 +166,7 @@ class Trainer:
                     logits = output[0] if isinstance(output, tuple) else output
 
                 loss_epsilon = self.loss_fn(logits, target)
-                loss_epsilon.backward() # Compute gradients for pi_metrics
+                loss_epsilon.backward()
 
                 all_grads = [p.grad for p in self.model.parameters() if p.grad is not None]
                 pi_metrics = self.pi_monitor.calculate(all_grads, loss_epsilon, logits)
@@ -181,15 +177,13 @@ class Trainer:
                 if 'gating_tau' in pi_metrics:
                     all_gating_taus.append(pi_metrics['gating_tau'])
 
-                # Calculate gating loss for validation
                 gating_loss_val = 0.0
                 if self.is_moe_model and all_routing_info and self.min_k is not None:
                     total_gating_loss = torch.tensor(0.0, device=self.device)
                     for i, info in enumerate(all_routing_info):
-                        # In validation, we don't have surprise-based min_k, so we use top_k from logits
-                        _, top_indices = torch.topk(info['log_probs'], self.min_k, dim=-1)
-                        min_k_indices_for_val = {i: top_indices.cpu().flatten().tolist()}
-                        total_gating_loss += self.gating_accuracy_loss_fn(info['log_probs'], min_k_indices_for_val, i)
+                        top_k_indices_for_val = info['top_indices']
+                        min_k_indices_for_val = {i: top_k_indices_for_val.cpu().flatten().tolist()}
+                        total_gating_loss += self.top_k_min_k_loss_fn(info['log_probs'], top_k_indices_for_val, min_k_indices_for_val, i)
                     
                     if len(all_routing_info) > 0:
                         gating_loss_val = (total_gating_loss / len(all_routing_info)).item()
@@ -249,13 +243,9 @@ class Trainer:
             for i, info in enumerate(all_routing_info):
                 if i in min_k_expert_indices_per_layer:
                     layer_min_k_indices = {i: min_k_expert_indices_per_layer[i]}
-                    total_gating_loss += self.gating_accuracy_loss_fn(info['log_probs'], layer_min_k_indices, i)
+                    total_gating_loss += self.top_k_min_k_loss_fn(info['log_probs'], info['top_indices'], layer_min_k_indices, i)
             
             gating_loss_tensor = total_gating_loss / len(all_routing_info) / accumulation_steps
             gating_loss_val = gating_loss_tensor.item()
         
         return gating_loss_val, gating_loss_tensor
-
-    # This method is no longer needed as gradients are directly accumulated and then zeroed by the optimizer.
-    # def _assign_grads_and_step(self, expert_grads, gating_grads):
-    #     pass

@@ -36,22 +36,25 @@ class LoadBalancingLoss(nn.Module):
         
         return loss
 
-class GatingSelectionLoss(nn.Module):
+class TopKMinKLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.bce_loss = nn.BCEWithLogitsLoss(reduction='mean')
+        self.kl_div_loss = nn.KLDivLoss(reduction='batchmean', log_target=True)
 
-    def forward(self, log_probs: torch.Tensor, min_k_expert_indices: Dict[int, List[int]], layer_idx: int) -> torch.Tensor:
+    def forward(self, log_probs: torch.Tensor, top_k_indices: torch.Tensor, min_k_expert_indices: Dict[int, List[int]], layer_idx: int) -> torch.Tensor:
         batch_size, num_tokens, num_experts = log_probs.shape
-        target_tensor = torch.zeros_like(log_probs, device=log_probs.device).reshape(-1, num_experts)
-
+        flat_log_probs = log_probs.reshape(-1, num_experts)
+        
+        # Create target distribution for min_k experts
+        min_k_target_dist = torch.full_like(flat_log_probs, -float('inf')) # Initialize with negative infinity for log_target=True
         if layer_idx in min_k_expert_indices:
             selected_expert_indices = torch.tensor(min_k_expert_indices[layer_idx], device=log_probs.device, dtype=torch.long)
             
-            expert_mask = torch.zeros(num_experts, device=log_probs.device, dtype=torch.float32)
-            expert_mask[selected_expert_indices] = 1.0
+            # Distribute probability mass equally among min_k experts
+            num_min_k = len(selected_expert_indices)
+            if num_min_k > 0:
+                min_k_target_dist.scatter_(1, selected_expert_indices.unsqueeze(0).expand(flat_log_probs.shape[0], -1), torch.log(torch.tensor(1.0 / num_min_k, device=log_probs.device)))
             
-            target_tensor = expert_mask.unsqueeze(0).expand(batch_size * num_tokens, -1)
-
-        loss = self.bce_loss(log_probs.reshape(-1, num_experts), target_tensor)
+        # Calculate KL divergence between current log_probs and min_k target distribution
+        loss = self.kl_div_loss(flat_log_probs, min_k_target_dist)
         return loss

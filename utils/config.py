@@ -11,7 +11,6 @@ class Config:
         self.model: Dict[str, Any] = model_module.model_config
         self.train_strategy: Dict[str, Any] = getattr(model_module, 'train_strategy_config', {'strategies': [{'name': 'Standard'}]})
         self.pilr: Dict[str, Any] = getattr(model_module, 'pilr_config', {})
-        self.gating_loss: Dict[str, Any] = getattr(model_module, 'gating_loss_config', {})
         
         self.schedule: Dict[str, Any] = schedule_module.schedule_config
 

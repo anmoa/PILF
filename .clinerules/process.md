@@ -18,59 +18,30 @@
     - `gating_inverse_ema_k`: 门控逆 EMA 的 `k` 参数。
 - [ ] **将 `mlp_dim` 转换为 `mlp_ratio` 派生参数**：
   - 在模型配置中引入 `mlp_ratio`，并从 `model_config['embed_dim'] * model_config['mlp_ratio']` 派生 `mlp_dim`。
-- [ ] **移除未使用的 `ood_inhibition_c` 参数**：
+- [x] **移除未使用的 `ood_inhibition_c` 参数**：
   - 从 `models/gaussian_moe.py` 中的 `GaussianMoELayer` 的 `__init__` 方法中移除 `ood_inhibition_c` 参数及其相关代码。
 
-## Epic 1: G2MoE (Generative Gaussian Mixture of Experts) 架构设计与实现
+## Epic 1: 门控网络学习机制优化
 
-**目标：** 引入一个有状态的“生成式记忆”模块 (`Generative_Memory`)，根据当前的 `surprise` 大小，按钟形曲线合成数据，以实现**数字梦境**和**自我稳态**，最终缓解灾难性遗忘问题。当 `surprise` 极高或极低时，模型将更多地依赖内部合成数据，而不是充分接受外部训练输入。
+**目标：** 优化门控网络的学习机制，使其能够从 `top_k` 和 `min_k` 专家分布的差异中学习，从而更有效地指导专家选择。
 
-## 1.1. 生成式记忆架构设计与集成
+## 1.1. 门控损失函数设计与实现
 
-- [ ] **创建 `models/generative_memory.py`**:
-  - [ ] **定义 `GenerativeMemory` 类**:
+- [x] **修改 `utils/gating_loss.py`**:
+  - [x] **引入 `TopKMinKLoss` 类**:
     - 继承 `nn.Module`。
-    - 内部包含一个序列模型（一个小型 Transformer Encoder）。
-    - 接收模型内部状态的摘要作为输入（例如，聚合的路由信息、惊奇度值、或当前批次的压缩特征表示）。
-    - 维护一个内部状态，该状态在训练时间步之间持久化。
-    - Decode 一系列“生成式回忆”，代表了当前训练时间步累积的“内部叙事”。
-    - 提供 `get_param_groups()` 方法，以便在优化器中单独管理其参数。
-- [ ] **修改 `models/gaussian_moe.py` 中的 `GaussianMoELayer`**:
-  - [ ] **修改 `forward` 方法**:
-    - 接收一个额外的 `memory_context` 参数。
-    - 使用 `memory_context` 来影响 `synthetic_routing_probs` 的生成。例如，可以将其与当前的 `log_probs` 或 `weights` 拼接后输入一个小型 MLP（作为 `GaussianMoELayer` 内部的“局部调制器”），或者直接用于调制高斯路由的参数（`expert_mus`, `expert_log_sigmas`）。
-    - 将 `synthetic_routing_probs` 添加到 `routing_info` 字典中。
-- [ ] **修改 `models/gaussian_moe.py` 中的 `GaussianMoEVisionTransformer`**:
-  - [ ] **实例化 `GenerativeMemory`**: 在 `__init__` 方法中实例化 `GenerativeMemory`。
-  - [ ] **调整 `forward` 方法**:
-    - 在每个前向传播步骤中，根据需要（例如，每个批次或每个任务开始时），调用 `GenerativeMemory` 的 `forward` 方法来更新其内部状态并获取当前的 `memory_context`。
-    - 将 `memory_context` 传递给每个 `GaussianMoELayer`。
-    - 确保 `forward` 方法能够收集并返回每层 `GaussianMoELayer` 生成的 `synthetic_routing_probs`。
-  - [ ] **更新 `get_param_groups` 方法**: 确保 `GenerativeMemory` 的参数被正确地分组（例如，可以新增一个 `generative_memory` 组）。
-
-## 1.2. 训练流程改造
-
-- [ ] **修改 `utils/training.py` 的 `Trainer` 类**:
-  - [ ] **维护 `surprise_max` 状态**: 在 `__init__` 方法中初始化 `self.surprise_max`（例如，一个滑动平均值或指数移动平均值），并在 `train_one_epoch` 中动态更新它。
-  - [ ] **实现动态数据流平衡与混合**:
-    - 在 `train_one_epoch` 方法中，计算当前的 `surprise_now`。
-    - **修正 `mix_ratio` 逻辑**: `mix_ratio` (即 `synthetic_routing_probs` 的权重) 应该根据 `surprise_now` 相对于一个理想的“最佳惊奇度”的偏离程度来计算。当 `surprise_now` 极低或极高时，`mix_ratio` 应该较高，表示模型更多地依赖内部合成数据进行巩固或稳定。当 `surprise_now` 处于最佳惊奇度附近时，`mix_ratio` 应该较低，表示模型更多地从外部数据中学习。这可以采用类似 `bell_curve_function(surprise_now, mu_surprise, sigma_surprise)` 的形式实现，其中 `mu_surprise` 是最佳惊奇度，`sigma_surprise` 控制曲线宽度。
-      - 获取真实的专家路由概率分布（例如 `log_probs` 或 `weights`）和模型生成的 `synthetic_routing_probs`。
-      - 根据 `mix_ratio` 混合这两种概率分布，形成一个用于高斯路由损失计算的“混合目标分布”。例如，`mixed_target_distribution = mix_ratio * synthetic_routing_probs + (1 - mix_ratio) * real_routing_probs`。
-  - [ ] **实现协同训练（分离反向传播）**:
-    - 专家损失（`expert_loss`）继续对专家参数和基础参数进行反向传播。
-    - 新增的高斯路由损失（例如，混合目标分布与实际路由分布的 KL 散度）将独立地对高斯路由参数（`expert_mus`, `expert_log_sigmas`）和**生成式记忆参数**进行反向传播。这需要调整 `_compute_grads` 方法，确保梯度不会互相干扰。
-  - [ ] **添加新指标**: 在 `train_one_epoch` 和 `validate` 方法中，添加对生成器相关指标（例如，合成概率分布与真实概率分布之间的 KL 散度、生成式记忆自身的损失）的记录和输出。
-  - [ ] **管理生成式记忆状态**: 在 `train_one_epoch` 或 `train_schedule` 中，根据需要（例如，每个任务开始时或每个周期开始时）调用 `GenerativeMemory` 的 `reset_state()` 方法。
-
-## 1.3. 实验与评估
-
-## 1.4. 实验与评估
-
-- [ ] **创建 G2MoE 调度文件：** 在 `schedules/` 目录下创建一个新的 `g2moe_schedule.py` 文件，用于定义 G2MoE 的训练和验证流程。
-- [ ] **创建 G2MoE 模型配置文件：** 在 `configs/` 目录下创建一个新的 `large_g2moe_smk_pilr_d.py` 文件，用于定义 G2MoE 模型架构和相关超参数，包括叙事生成器的配置。
-- [ ] **运行实验：** 使用 `train.py` 脚本，结合新的 G2MoE 模型配置和调度文件，运行实验。
-- [ ] **评估结果：** 分析实验结果，评估 G2MoE 在解决灾难性遗忘和提升模型性能方面的效果。
+    - 接收 `log_probs` (所有专家的对数概率)、`top_k_indices` (当前批次 `top_k` 专家的索引) 和 `min_k_expert_indices` (由 `SurpriseMinKStrategy` 确定的 `min_k` 专家的索引) 作为输入。
+    - 计算 `top_k` 专家分布与 `min_k` 专家分布之间的差异。这可以通过多种方式实现，例如：
+      - 计算两个分布的 KL 散度。
+      - 计算两个分布的交叉熵。
+      - 惩罚 `top_k` 专家中不在 `min_k` 专家集合中的专家，或者奖励 `min_k` 专家中被 `top_k` 选中的专家。
+    - 返回一个标量损失值。
+- [x] **修改 `utils/training.py` 的 `Trainer` 类**:
+  - [x] **实例化 `TopKMinKLoss`**: 在 `__init__` 方法中实例化新的损失函数。
+  - [x] **调整 `_compute_gating_loss` 方法**:
+    - 接收 `all_routing_info` (包含 `log_probs` 和 `top_indices`) 和 `min_k_expert_indices_per_layer`。
+    - 调用 `TopKMinKLoss` 计算门控损失。
+    - 确保梯度正确反向传播到门控参数。
 
 ## Epic 1.5: 惊奇度指标优化
 
@@ -132,5 +103,5 @@
     - **信息分解**: 对每一对组合，提取其激活张量作为 `s1` 和 `s2`，并调用 `omegaid` 进行信息分解。
   - [ ] **结果可视化**:
     - 对每个 epoch，为所有分析的专家对生成信息原子图表。
-    - 可以生成一个矩阵图（heatmap），行和列都是专家索引，单元格的颜色表示特定信息原子（如协同 `S` 或冗余 `R`）的强度。
+    - 可以生成一个矩阵图（heatmap），行和列都是专家索引，单元格的颜色表示特定信息原子（如协同 `Syn` 或冗余 `Red`）的强度。
     - 将图表保存到 `run-dir/oid_plots/{probe_name}/` 目录中。

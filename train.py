@@ -93,7 +93,6 @@ def run_schedule(
         strategy_components=strategy_components,
         device=device,
         writer=writer,
-        gating_loss_config=config.gating_loss
     )
 
     # --- 6. Dataset Pre-check ---
