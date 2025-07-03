@@ -118,7 +118,8 @@ def run_schedule(
 
     for cycle in range(config.schedule['num_cycles']):
         print(f"\n--- Cycle {cycle + 1}/{config.schedule['num_cycles']} ---")
-        for task_name, num_epochs in config.schedule['tasks']:
+        for task_idx, (task_name, num_epochs) in enumerate(config.schedule['tasks']):
+            use_narrative_generator_for_task = (task_idx > 0) # Only enable narrative generator after the first task
             if task_name == 'VALIDATE':
                 print("Performing validation across all datasets...")
                 for val_ds_name in config.schedule['val_datasets']:
@@ -152,9 +153,10 @@ def run_schedule(
                     global_step=global_step,
                     accumulation_steps=config.schedule['train_config']['accumulation_steps'],
                     task_name=task_name,
+                    use_narrative_generator=use_narrative_generator_for_task,
                 )
                 
-                if epoch_results: # Accumulate results from the current epoch
+                if epoch_results:
                     all_train_results.extend(epoch_results)
             
             current_checkpoint_path = os.path.join(output_dir, "checkpoints", f"epoch_{global_step}.pth")

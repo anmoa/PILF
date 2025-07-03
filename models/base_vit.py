@@ -16,6 +16,7 @@ class PatchEmbedding(nn.Module):
         super().__init__()
         self.img_size = img_size
         self.patch_size = patch_size
+        self.in_channels = in_channels
         self.n_patches = (img_size // patch_size) ** 2
         
         self.proj = nn.Conv2d(

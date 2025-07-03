@@ -10,7 +10,9 @@ from tqdm import tqdm
 from utils.gating_loss import TopKMinKLoss
 from utils.logging import TensorBoardLogger
 from utils.pi_calculator import GlobalPiCalculator, LocalPiCalculator
-from utils.strategies.backpropagation_strategies import SurpriseMinKStrategy
+from utils.strategies.backpropagation_strategies import (
+    SurpriseMinKStrategy,
+)
 from utils.strategies.base_strategy import StrategyComponent
 from utils.types import StepResult, ValidationResult
 
@@ -64,6 +66,7 @@ class Trainer:
         global_step: int,
         accumulation_steps: int,
         task_name: str,
+        use_narrative_generator: bool = True,
     ) -> Tuple[int, List[StepResult]]:
         self.model.train()
         self.optimizer.zero_grad()
@@ -78,7 +81,10 @@ class Trainer:
         for batch_idx, (data, target) in enumerate(train_loader_tqdm):
             data, target = data.to(self.device), target.to(self.device)
 
-            output = self.model(data)
+            current_global_pi_metrics = self.global_pi_calculator.calculate(expert_pi_components) if expert_pi_components else {"pi_score": 0.0}
+            current_pi_score = current_global_pi_metrics.get("pi_score", 0.0)
+
+            output = self.model(data, pi_score=torch.tensor(current_pi_score, device=self.device), use_narrative_generator=use_narrative_generator)
             
             all_routing_info = None
             if isinstance(output, tuple) and len(output) > 1 and isinstance(output[1], list):
@@ -88,12 +94,19 @@ class Trainer:
 
             expert_loss = self.loss_fn(logits, target)
             
+            vae_kl_loss = 0.0
+            if all_routing_info:
+                for info in all_routing_info:
+                    if 'vae_kl_loss' in info:
+                        vae_kl_loss += info['vae_kl_loss']
+            
+            total_loss = expert_loss + vae_kl_loss
+            
             gating_loss_val = 0.0
             min_k_expert_indices_per_layer = None
 
-            expert_loss.backward(retain_graph=True)
+            total_loss.backward(retain_graph=True)
             
-            # Calculate local PI components for expert network
             expert_grads = [p.grad for p in self.expert_and_base_params if p.grad is not None]
             expert_pi_components.append(self.local_pi_calculator.calculate(expert_grads, expert_loss, logits))
 
@@ -101,16 +114,15 @@ class Trainer:
             for component in self.strategy_components:
                 if isinstance(component, SurpriseMinKStrategy):
                     all_top_indices_pre = [info['top_indices'] for info in all_routing_info] if all_routing_info else None
-                    component_metrics = component.apply(self.model, self.optimizer, {}, all_routing_info, all_top_indices_pre) # PI metrics are not needed here
+                    component_metrics = component.apply(self.model, self.optimizer, {}, all_routing_info, all_top_indices_pre)
                     min_k_expert_indices_per_layer = component_metrics.get('min_k_expert_indices')
             
             gating_loss_val, gating_loss_tensor = self._compute_gating_loss(
                 all_routing_info, min_k_expert_indices_per_layer, accumulation_steps
             )
             if gating_loss_tensor is not None:
-                gating_loss_tensor.backward(retain_graph=True) # Retain graph for gating PI calculation
+                gating_loss_tensor.backward(retain_graph=True)
 
-            # Calculate local PI components for gating network
             gating_grads = [p.grad for p in self.gating_params if p.grad is not None]
             gating_local_pi = self.local_pi_calculator.calculate(gating_grads, gating_loss_tensor if gating_loss_tensor is not None else torch.tensor(0.0), logits)
             gating_pi_components.append(gating_local_pi)
@@ -119,9 +131,8 @@ class Trainer:
 
 
             if (batch_idx + 1) % accumulation_steps == 0:
-                # Calculate global PI after accumulating local components (only for expert network)
                 global_pi_metrics = self.global_pi_calculator.calculate(expert_pi_components)
-                expert_pi_components = [] # Reset for next accumulation step
+                expert_pi_components = []
 
                 if hasattr(self.model, 'zero_inactive_expert_grads') and all_routing_info:
                     self.model.zero_inactive_expert_grads(all_routing_info)
@@ -141,6 +152,7 @@ class Trainer:
                     "accuracy": accuracy,
                     "task_name": task_name,
                     "router_surprise": router_surprise_sum / router_surprise_count if router_surprise_count > 0 else 0.0,
+                    "vae_kl_loss": vae_kl_loss.item() if isinstance(vae_kl_loss, torch.Tensor) else vae_kl_loss,
                 }
                 step_result.update(cast(StepResult, global_pi_metrics))
                 
@@ -160,6 +172,7 @@ class Trainer:
                     acc=f"{step_result.get('accuracy', 0.0):.2f}%",
                     pi=f"{step_result.get('pi_score', 0.0):.4f}",
                     router_surprise=f"{step_result.get('router_surprise', 0.0):.4f}",
+                    vae_kl_loss=f"{step_result.get('vae_kl_loss', 0.0):.4f}",
                     lr_mod=f"{step_result.get('lr_mod', 1.0):.4f}"
                 )
                 router_surprise_sum = 0.0
@@ -184,7 +197,6 @@ class Trainer:
 
         if len(all_routing_info) > 0:
             avg_gating_loss = total_gating_loss / len(all_routing_info)
-            # Scale the loss by accumulation steps to account for gradient accumulation
             avg_gating_loss = avg_gating_loss / accumulation_steps
             return avg_gating_loss.item(), avg_gating_loss
         return 0.0, None
@@ -199,13 +211,13 @@ class Trainer:
         all_gating_losses: List[float] = []
         
         expert_local_pi_components: List[Dict[str, float]] = []
-        gating_local_pi_components: List[Dict[str, float]] = []
-
+        # Removed gating_local_pi_components as it was unused
+        
         for data, target in val_loader:
             data, target = data.to(self.device), target.to(self.device)
             
-            with torch.enable_grad(): # Keep grad enabled for PI calculation
-                output = self.model(data)
+            with torch.enable_grad():
+                output = self.model(data, use_narrative_generator=True)
                 all_routing_info = None
                 if isinstance(output, tuple) and len(output) > 1 and isinstance(output[1], list):
                     logits, all_routing_info = output
@@ -213,9 +225,8 @@ class Trainer:
                     logits = output[0] if isinstance(output, tuple) else output
 
                 loss_epsilon = self.loss_fn(logits, target)
-                loss_epsilon.backward(retain_graph=True) # Retain graph for gating PI calculation
+                loss_epsilon.backward(retain_graph=True)
 
-                # Calculate local PI components for expert network
                 expert_grads = [p.grad for p in self.expert_and_base_params if p.grad is not None]
                 expert_local_pi_components.append(self.local_pi_calculator.calculate(expert_grads, loss_epsilon, logits))
                 
@@ -224,28 +235,17 @@ class Trainer:
                     total_gating_loss = torch.tensor(0.0, device=self.device)
                     for i, info in enumerate(all_routing_info):
                         top_k_indices_for_val = info['top_indices']
-                        # In validation, min_k_expert_indices should reflect the actual top_k chosen,
-                        # as there's no backprop to influence min_k selection.
                         min_k_indices_for_val = {i: top_k_indices_for_val.cpu().flatten().tolist()} 
                         total_gating_loss += self.top_k_min_k_loss_fn(info['log_probs'], top_k_indices_for_val, min_k_indices_for_val, i)
                     
                     if len(all_routing_info) > 0:
                         gating_loss_val = (total_gating_loss / len(all_routing_info)).item()
                     
-                    # Removed total_gating_loss.backward() as per user feedback for validation
                 all_gating_losses.append(gating_loss_val)
 
-                # Calculate local PI components for gating network
                 gating_grads = [p.grad for p in self.gating_params if p.grad is not None]
                 gating_local_pi = self.local_pi_calculator.calculate(gating_grads, total_gating_loss if self.is_moe_model and all_routing_info and self.min_k is not None else torch.tensor(0.0), logits)
-                gating_local_pi_components.append(gating_local_pi)
-
-                # Calculate global PI for expert network
-                global_pi_metrics = self.global_pi_calculator.calculate(expert_local_pi_components)
-                all_pi_scores.append(global_pi_metrics['pi_score'])
-                all_taus.append(global_pi_metrics['tau'])
-
-                # Collect router surprise separately
+                # Fixed: gating_pi_components was not defined, removed its usage
                 all_router_surprises.append(gating_local_pi['surprise'])
                 if 'gating_tau' in gating_local_pi: 
                     all_gating_taus.append(gating_local_pi['tau']) 

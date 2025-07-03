@@ -103,3 +103,14 @@
 
 - [ ] **修改 `utils/config.py`**:
   - 允许在模型配置或调度配置中定义动态调度相关的参数（例如，Grokking 阈值，任务选择策略参数）。
+
+## Epic 4: 实现 GenGaussMoE (已完成)
+
+- [x] **定义 `GenGaussianMoELayer`**: 继承 `GaussianMoELayer`，引入叙事生成器模块。
+- [x] **实现“叙事生成器”模块**: 包含任务特征提取器、Transformer 调度与分析模块、VAE 核心。
+- [x] **集成“叙事生成器”到训练流程**: `Trainer` 已修改以传递 `pi_score`。
+- [x] **更新 `models/__init__.py`**: 添加 `GenGaussianMoEVisionTransformer` 到 `model_map`。
+- [x] **创建 `configs/large_gen_gauss_moe_smk_pilr_d.py`**: 新增模型配置文件。
+- [x] **通过静态检查**: `ruff check` 和 `mypy` 已通过。
+- [x] **解决维度硬编码问题**: `narrative_generator_dim` 和 `vae_latent_dim` 的计算确保确定性，并根据 `GenGaussianMoELayer` 的 `in_features`（即 `embed_dim`）动态计算，同时确保 `narrative_generator_dim + 1` 可被 `nhead` 整除，且整个特征提取与记忆回放系统的参数量控制在主模型参数量的 1/10 以内。
+- [x] **优化训练速度**: 解决训练速度慢的问题。
