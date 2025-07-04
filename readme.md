@@ -6,18 +6,15 @@
 
 > "Don't just train your model, understand its mind."
 
+> ⚠️ **Warning:** This repository is undergoing a massive refactoring. You may refer to the strategies, but please do not use this repository directly as it is currently broken.
+
 <p align="center">
     <a href="zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
 </p>
 
 ---
 
-**PILF** is a cognitive learning framework designed to transform fixed hyperparameters (e.g., learning rate, model capacity) into dynamic strategies driven by the intrinsic "Surprise" of data.
-
-It allows the model to:
-
-- **Perceive Value**: Evaluate the learning value of each data batch in real-time.
-- **Decide Autonomously**: Based on this value, decide "how much to learn" (learning rate) and "with how much capacity" (model capacity).
+**PILF** is a cognitive learning framework designed to enhance the continuous learning capabilities of Mixture-of-Experts (MoE) models through a dedicated meta-learning gating mechanism. It achieves stable policy optimization by decoupling the learning of routing strategies from the acquisition of new knowledge.
 
 The technical and theoretical foundation of this framework is **[IPWT (Integrated Predictive Workspace Theory)](https://github.com/dmf-archive/IPWT)**.
 
@@ -29,53 +26,62 @@ PILF's design philosophy is: **to replace static, human-set rules with dynamic, 
 
 It no longer blindly uses a fixed learning rate or fixed model capacity, but instead dynamically and proportionally adjusts its learning behavior by real-time evaluating the `Surprise` brought by each batch of data.
 
-## Framework
+## PILF-2 Architecture Overview
+
+PILF-2 enhances continuous learning in MoE models via a meta-learning gating mechanism, decoupling routing strategy learning from knowledge acquisition for stable policy optimization.
+
+### Core Components
+
+- **Base Model**: `VisionTransformer` for feature extraction.
+- **Expert Layer**: `GaussianMoELayer` with N independent experts, each defined by a learnable Gaussian distribution (`μ`, `log_sigma`) for specialized knowledge domains.
+- **Meta-Learning Gating**: `GatingTransformer`, a Transformer-based network, learns to map input representations (Query) to optimal expert routing (Key).
+- **Dynamic Regulation & Memory**:
+  - `PI_Calculator`: Real-time metrics (Epsilon, Tau, Surprise/Gradient Norm).
+  - `SurpriseMinKStrategy` (SMK): Updates only `min_k` experts with lowest `Surprise` during backpropagation.
+  - `RoutingExperienceBuffer`: Stores high-uncertainty/surprise routing events for replay.
+
+### System Architecture Sequence
 
 ```mermaid
-flowchart TD
-subgraph meta_cognition["Metacognition"]
-        Router["GaussRouter"]
-        VAE("Generative Replay<br>VAE")
-end
-subgraph ExpertGroup["Expert Group"]
-        EXP1["Expert 1"]
-        EXP2["Expert 2"]
-        EXPx["Expert x"]
-end
+graph LR
+    subgraph "PILF-2"
+        A[Input Data] --> B{PI_Calculator};
+        A --> E{"Model (VisionTransformer <br> GaussianMoELayer)"};
 
-Input["Input"] --> Surprise[Surprise]
-Surprise --> Router
-Surprise -- min_k update --> EXP1 & EXP2 & EXPx
-Router -- top_k activation --> EXP1 & EXP2 & EXPx
-EXP1 & EXP2 & EXPx -- Output --> Output["Output"]
-Router -- Dynamic Prior --> VAE
-VAE -- Synthesized Memory --> Router
+        subgraph "Main Task Forward Pass"
+            E -- "Input Representation" --> GT{GatingTransformer};
+            GT -- "Routing Decision (top_k)" --> Experts;
+            Experts -- "Final Output" --> Loss;
+        end
+
+        Loss -- "Gradient" --> SMK{SurpriseMinKStrategy};
+        SMK -- "min_k Gradient" --> Experts_Update[Expert Parameter Update];
+
+        subgraph "Meta-Learning & Memory Update"
+            B -- "Tau, Surprise" --> Curation{Routing Experience Curation};
+            E -- "Input Representation" --> Curation;
+            SMK -- "min_k Expert Indices" --> Curation;
+            Curation -- "High-Value Experience" --> REB[RoutingExperienceBuffer];
+
+            REB -- "Sample Historical Experience" --> GT_Train[Gating Network Training Loop];
+            GT_Train -- "Update Gradient" --> GT_Update[GatingTransformer Parameter Update];
+        end
+    end
 ```
 
-### Surprise-Min-K (SMK)
+### Training Process Summary
 
-SMK is an adaptive scheme that promotes expert specialization and model interpretability. Originating from Gated Backpropagation (GBP), a hard-gating update mechanism based on `Surprise`, SMK refines this idea. After the `top-k` experts are activated, the system calculates the `Surprise` for each expert and retains only the `min_k` experts with the lowest `Surprise` for updating. This is a digital reproduction of Neural Darwinism, accelerating functional convergence and forcing the model to rely on its most "confident" experts. This allows for easy observation of expert activation patterns across different tasks.
+PILF-2 training involves three phases:
 
-### GaussMoE (Gaussian-Routed MoE)
-
-To address the fundamental flaws of linear gating, we introduced **Gaussian Routing**, which is the core of our current research. It promotes expert specialization and, when paired with SMK, shows excellent expert functional differentiation. However, it cannot overcome catastrophic forgetting on its own in a context-free environment.
-
-1. **Experts as Distributions**: Each expert is no longer a simple MLP but is defined by a learnable Gaussian distribution (parameterized by a mean `μ` and a log standard deviation `log_sigma`) in the input space, representing its "domain of knowledge."
-2. **Routing as Probability Calculation**: The routing process is no longer a simple linear mapping but involves calculating the log probability density of the input `x` under each expert's Gaussian distribution. This probability reflects how well the input matches an expert's "knowledge domain," which fundamentally promotes the **functional specialization** and **interpretability** of experts.
-
-### PILR-S/D (Predictive Integrity-driven Learning Rate Scheduler)
-
-This is a dynamic learning rate control mechanism. Unfortunately, it often introduces more hyperparameters, and its effectiveness is still under investigation. Compared to the significant results of SMK, PILR's contribution is less remarkable at this stage.
+1. **Main Task Optimization & Experience Collection**: Input data is processed by `VisionTransformer` and `GatingTransformer` to activate `top_k` experts. `expert_loss` is calculated, and `Surprise` is used by `SMK` to select `min_k` experts for updates. High-value routing events (based on `Tau` and `Surprise`) are stored in `RoutingExperienceBuffer`.
+2. **Gating Network Policy Optimization**: Periodically, `GatingTransformer` is trained on sampled historical experiences from `RoutingExperienceBuffer` to learn successful routing decisions, using a supervised learning approach.
+3. **Parameter Updates Application**: Gradients from both main task optimization (SMK-filtered) and gating network optimization are applied to update respective model parameters.
 
 ## Future Features
 
-### Memory Gaussian MoE (MGM)
-
-This mechanism introduces a novel approach to enhance knowledge isolation and achieve natural gradient orthogonalization within Mixture-of-Experts (MoE) models. Unlike traditional methods that rely on replay or explicit loss terms, MGM utilizes the model's own historical routing decisions to directly influence the router's gradient updates during backpropagation. It collects and aggregates the historical routing distribution from each MoE layer into a buffer, forming a dynamic representation of the model's historical expert activation patterns. A `historical_routing_loss_val` (KL divergence between the current and historical routing distributions) is calculated, but is **not** directly added to the total loss. Instead, its gradient with respect to the router parameters is computed. This "historical gradient" is then dynamically mixed with the main task gradient according to a `(1 - PI)` weight. When the model's Predictive Integrity (PI) is low, the historical influence is higher, thus more strongly guiding the router's update to maintain consistency with past routing behavior. This implicitly guides the router to preserve previously acquired knowledge while learning new tasks through a natural gradient orthogonalization process, effectively mitigating catastrophic forgetting.
-
 ### Dynamic Top-K
 
-This mechanism will dynamically scale the number of activated experts, `k`, based on `Surprise` (`k = g(Surprise)`). Simple tasks will require fewer experts, while complex tasks will dynamically mobilize more. This is not yet implemented due to the current small scale of experiments and its relative simplicity to implement later.
+This mechanism will dynamically scale the number of activated experts, `k`, based on `Surprise` (`k = g(Surprise)`). Simple tasks will require fewer experts, while complex tasks will dynamically mobilize more.
 
 ### Dynamic Schedules
 

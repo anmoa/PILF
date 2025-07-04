@@ -1,24 +1,22 @@
 # 预测完整性学习框架（Predictive Integrity Learning Framework, PILF）
 
+[![Theory: IPWT](https://img.shields.io/badge/Theory-IPWT-blue)](https://github.com/dmf-archive/IPWT)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dmf-archive/PILF)
 
 > 不仅要训练你的模型，更要理解它的心智。
 
+> ⚠️ **警告：** 本代码库正在进行大规模重构。您可以参考策略，但请不要直接使用本仓库，它已经坏掉了。
+
 <p align="center">
-<a href="zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a>
+    <a href="zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a>
 </p>
 
 ---
 
-**PILF** 是一个认知学习框架，旨在将固定的超参数（如学习率、模型容量）转变为由数据内在“惊奇度”(`Surprise`)实时驱动的动态策略。
+**PILF** 是一个认知学习框架，旨在通过专用的元学习门控机制，增强混合专家（MoE）模型的持续学习能力。它通过解耦路由策略的学习与新知识的采集，实现稳定的策略优化。
 
-它让模型能够：
-
-- **感知价值**：实时评估每个数据批次带来的学习价值。
-- **自主决策**：根据价值自主决定“学多少”（学习率）和“用多大容量学”（模型容量）。
-
-该框架的技术和理论基础源于 **[IPWT (Integrated Predictive Workspace Theory)](https://github.com/dmf-archive/IPWT)**。
+该框架的技术和理论基础源于 **[IPWT (整合预测工作空间理论)](https://github.com/dmf-archive/IPWT)**。
 
 ## 设计哲学：从“固定规则”到“动态策略”
 
@@ -28,53 +26,62 @@ PILF 的设计哲学是：**用动态的、数据驱动的策略取代静态的�
 
 它不再盲目地使用固定的学习率或固定的模型容量，而是通过实时评估每一批次数据带来的 `Surprise`，动态地、按比例地调整其学习行为。
 
-## 框架
+## PILF-2 架构概览
+
+PILF-2 通过元学习门控机制增强 MoE 模型的持续学习能力，通过解耦路由策略的学习与知识获取，实现稳定的策略优化。
+
+### 核心组件
+
+- **基础模型**: `VisionTransformer` 用于特征提取。
+- **专家层**: `GaussianMoELayer` 包含 N 个独立的专家网络，每个专家通过可学习的高斯分布（均值 `μ` 和对数标准差 `log_sigma`）定义其在输入表征空间中的专业领域。
+- **元学习门控**: `GatingTransformer` 是一个独立的、基于 Transformer 的网络，负责学习从输入表征（Query）到最优专家路由（Key）的映射策略。
+- **动态调节与记忆组件**:
+  - `PI_Calculator`: 用于实时计算内在状态指标（预测误差 Epsilon、模型不确定性 Tau 和模型参数更新的惊奇度 Surprise/梯度范数）。
+  - `SurpriseMinKStrategy` (SMK): 一种更新策略，在反向传播过程中，仅允许 `Surprise` 最低的 `min_k` 个专家更新其参数。
+  - `RoutingExperienceBuffer`: 一个有限容量的经验缓存区，用于存储高不确定性或高惊奇度的路由事件，每个条目包含输入表征、成功的专家路由目标和事件优先级。
+
+### 系统架构序列图
 
 ```mermaid
-flowchart TD
-subgraph s1["元认知"]
-        Router["GaussRouter"]
-        VAE("生成式回放<br>VAE")
-end
-subgraph EXPG["专家组"]
-        EXP1["专家1"]
-        EXP2["专家2"]
-        EXPx["专家x"]
-end
+graph LR
+    subgraph "PILF-2"
+        A[输入数据] --> B{PI_Calculator};
+        A --> E{"模型 (VisionTransformer <br> GaussianMoELayer)"};
 
-Input["输入"] --> Surprise
-Surprise --> Router
-Router -- top_k激活 --> EXP1 & EXP2 & EXPx
-EXP1 & EXP2 & EXPx -- 输出 --> Output["输出"]
-Router -- 动态先验 --> VAE
-VAE -- 合成记忆 --> Router
-Surprise -- min_k更新 --> EXP1 & EXP2 & EXPx
+        subgraph "主任务前向传播"
+            E -- "输入表征" --> GT{GatingTransformer};
+            GT -- "路由决策 (top_k)" --> Experts;
+            Experts -- "最终输出" --> Loss;
+        end
+
+        Loss -- "梯度" --> SMK{SurpriseMinKStrategy};
+        SMK -- "min_k 梯度" --> Experts_Update[专家参数更新];
+
+        subgraph "元学习与记忆更新"
+            B -- "Tau, Surprise" --> Curation{路由经验策展};
+            E -- "输入表征" --> Curation;
+            SMK -- "min_k 专家索引" --> Curation;
+            Curation -- "高价值经验" --> REB[RoutingExperienceBuffer];
+
+            REB -- "采样历史经验" --> GT_Train[门控网络训练循环];
+            GT_Train -- "更新梯度" --> GT_Update[GatingTransformer参数更新];
+        end
+    end
 ```
 
-### Surprise-Min-K (SMK)
+### 训练流程概述
 
-SMK 是一种促进专家专业化和模型可解释性的自适应方案。它起源于门控反向传播 (GBP)，一种基于 `Surprise` 的硬性门控更新机制，SMK 对此思想进行了改进。在 `top-k` 专家被激活后，系统会计算每个专家的 `Surprise`，并仅保留 `Surprise` 最低的 `min_k` 个专家进行更新。这是神经达尔文主义的数字再现，加速了功能收敛，并强制模型依赖最“自信”的专家。这使得观察不同任务下的专家激活模式变得容易。
+PILF-2 训练包括三个阶段：
 
-### GaussMoE (高斯路由 MoE)
-
-为了解决线性门控的根本缺陷，我们引入了**高斯路由 (Gaussian Routing)**，这是当前研究的核心。它促进了专家的专业化，并且在与 SMK 结合使用时，表现出卓越的专家功能分化。然而，在没有上下文的环境中，它自身无法克服灾难性遗忘。
-
-1. **专家即分布 (Experts as Distributions)**: 每个专家是在输入空间中由一个可学习的高斯分布（由均值 `μ` 和对数标准差 `log_sigma` 参数化）来定义其“知识领域”。
-2. **路由即计算概率 (Routing as Probability Calculation)**: 路由过程是计算输入 `x` 在每个专家的高斯分布下的对数概率密度。这个概率反映了输入与专家“知识领域”的匹配程度，从根本上强化了专家的分工和专业化。
-
-### PILR-S/D (预测完整性学习率调度器)
-
-这是一种动态学习率控制机制。不幸的是，它通常会引入更多的超参数，其有效性仍在研究中。与 SMK 的显著效果相比，PILR 在此阶段的贡献不那么引人注目。
+1. **主任务优化与经验采集**: 输入数据通过 `VisionTransformer` 和 `GatingTransformer` 处理以激活 `top_k` 专家。计算 `expert_loss`，`Surprise` 用于 `SMK` 选择 `min_k` 专家进行更新。高价值路由事件（基于 `Tau` 和 `Surprise`）存储在 `RoutingExperienceBuffer` 中。
+2. **门控网络策略优化**: `GatingTransformer` 定期从 `RoutingExperienceBuffer` 中采样的历史经验进行训练，以学习成功的路由决策，采用监督学习方法。
+3. **参数更新应用**: 主任务优化（SMK 筛选后）和门控网络优化产生的梯度分别应用于更新相应的模型参数。
 
 ## 未来特性
 
-### Memory Gaussian MoE (MGM)
-
-该机制引入了一种新颖的方法，旨在增强知识隔离并在混合专家（MoE）模型中实现自然的梯度正交化。与依赖回放或显式损失项的传统方法不同，MGM 利用模型自身的历史路由决策，直接影响反向传播过程中路由器的梯度更新。它收集并聚合每个 MoE 层的历史路由分布到一个缓冲区中，形成模型历史专家激活模式的动态表示。一个 `historical_routing_loss_val`（当前与历史路由分布之间的 KL 散度）被计算，但**不**直接添加到总损失中。相反，其对路由器参数的梯度被计算出来。然后，这个“历史梯度”会根据 `(1 - PI)` 权重与主任务梯度进行动态混合。当模型的预测完整性（PI）较低时，历史影响力更高，从而更强烈地引导路由器的更新，使其与过去的路由行为保持一致。这通过自然的梯度正交化过程，隐式地引导路由器在学习新任务的同时保留先前获得的知识，有效缓解灾难性遗忘。
-
 ### 动态 Top-K
 
-该机制将根据 `Surprise` 动态调整激活的专家数量 `k` (`k = g(Surprise)`)。简单的任务将需要更少的专家，而复杂的任务则会动态调动更多。由于当前实验规模较小且实现相对简单，此功能尚未实现。
+该机制将根据 `Surprise` 动态调整激活的专家数量 `k` (`k = g(Surprise)`)。简单的任务将需要更少的专家，而复杂的任务则会动态调动更多。
 
 ### 动态 Schedules
 
