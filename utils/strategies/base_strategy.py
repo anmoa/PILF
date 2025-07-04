@@ -4,13 +4,19 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from utils.types import StepResult
+from utils.logging.types import StepResult
 
 
 class StrategyComponent:
     def __init__(self, **kwargs):
         pass
 
-    def apply(self, model: nn.Module, optimizer: optim.Optimizer, pi_metrics: Dict[str, Any],
-              all_gating_logits: Optional[Any] = None, all_top_indices: Optional[List[torch.Tensor]] = None) -> StepResult:
+    def apply(
+        self,
+        model: nn.Module,
+        optimizer: optim.Optimizer,
+        pi_metrics: Dict[str, Any],
+        all_gating_logits: Optional[Any] = None,
+        all_top_indices: Optional[List[torch.Tensor]] = None,
+    ) -> StepResult:
         raise NotImplementedError

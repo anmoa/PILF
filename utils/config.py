@@ -1,31 +1,59 @@
+import argparse
 import importlib
 import os
-from typing import Any, Dict
+from copy import deepcopy
+from typing import Any, Dict, Optional
 
 
 class Config:
-    def __init__(self, model_config_path: str, schedule_path: str):
-        model_module = self._import_module(model_config_path)
-        schedule_module = self._import_module(schedule_path)
+    model: Dict[str, Any]
+    train_strategy: Dict[str, Any]
+    pilr: Optional[Dict[str, Any]]
+    pi: Dict[str, Any]
+    schedule: Dict[str, Any]
 
-        self.model: Dict[str, Any] = model_module.model_config
-        
-        if 'mlp_ratio' in self.model and 'embed_dim' in self.model:
-            self.model['mlp_dim'] = int(self.model['embed_dim'] * self.model['mlp_ratio'])
+    def __init__(self, args: argparse.Namespace):
+        config_module = self._import_module(args.config)
+        base_config = config_module.BASE_CONFIG
 
-        self.train_strategy: Dict[str, Any] = getattr(model_module, 'train_strategy_config', {'strategies': [{'name': 'Standard'}]})
-        self.pilr: Dict[str, Any] = getattr(model_module, 'pilr_config', {})
-        
-        self.schedule: Dict[str, Any] = schedule_module.schedule_config
+        self.model = self._build_model_config(base_config, args.router)
+        self.train_strategy = self._build_train_strategy(base_config, args.update)
+        self.pilr = self._build_pilr_config(base_config, args.lrs)
+        self.pi = base_config.get("pi_config", {})
+
+        schedule_module = self._import_module(args.schedule)
+        self.schedule = schedule_module.schedule_config
+        self.schedule["name"] = os.path.splitext(os.path.basename(args.schedule))[0]
 
     def _import_module(self, path: str) -> Any:
-        # Convert file system path to Python module path
-        # e.g., "configs/a.py" -> "configs.a"
-        module_path = os.path.normpath(path)
-        module_path = module_path.replace(os.sep, '.')
-        if module_path.endswith('.py'):
+        module_path = os.path.normpath(path).replace(os.sep, ".")
+        if module_path.endswith(".py"):
             module_path = module_path[:-3]
         return importlib.import_module(module_path)
 
-def load_config(model_config_path: str, schedule_path: str) -> Config:
-    return Config(model_config_path, schedule_path)
+    def _build_model_config(self, base: Dict, router_key: str) -> Dict:
+        config = deepcopy(base["model_config"])
+        router_config = base["router_configs"].get(router_key)
+        if router_config:
+            config.update(router_config)
+
+        if "mlp_ratio" in config and "embed_dim" in config:
+            config["mlp_dim"] = int(config["embed_dim"] * config["mlp_ratio"])
+
+        # Ensure model_type is set for create_model factory
+        if "router_type" in config:
+            config["model_type"] = config["router_type"]
+
+        return config
+
+    def _build_train_strategy(self, base: Dict, update_key: str) -> Dict:
+        return base["train_strategy_configs"].get(
+            update_key, {"strategies": [{"name": "Standard"}]}
+        )
+
+    def _build_pilr_config(self, base: Dict, lrs_key: str) -> Optional[Dict]:
+        return base["pilr_configs"].get(lrs_key)
+
+
+def load_config(args: argparse.Namespace) -> Config:
+    return Config(args)

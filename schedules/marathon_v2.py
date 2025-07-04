@@ -3,33 +3,29 @@
 
 schedule_config = {
     # Number of times to repeat the entire task sequence.
-    'num_cycles': 4,
-
+    "num_cycles": 4,
     # List of datasets to be used for validation after each training task.
-    'val_datasets': ['CIFAR10', 'MNIST', 'FashionMNIST', 'SVHN'],
-
+    "val_datasets": ["CIFAR10", "MNIST", "FashionMNIST", "SVHN"],
     # Sequence of training tasks to be executed in each cycle.
     # Each task is a tuple of (dataset_name, num_epochs_to_train).
-    'tasks': [
-        ('CIFAR10', 4),
-        ('MNIST', 2),
-        ('FashionMNIST', 3),
-        ('SVHN', 5),
-        ('VALIDATE', 1),
+    "tasks": [
+        ("CIFAR10", 4),
+        ("MNIST", 2),
+        ("FashionMNIST", 3),
+        ("SVHN", 5),
+        ("VALIDATE", 1),
     ],
-
     # Training parameters
-    'train_config': {
-        'batch_size': 1024,
-        'accumulation_steps': 1,
-        'learning_rate': 1e-3,
-        'weight_decay': 1e-4,
-        'output_dir': 'output/marathon-v2',
+    "train_config": {
+        "batch_size": 1024,
+        "accumulation_steps": 1,
+        "learning_rate": 1e-3,
+        "weight_decay": 1e-4,
+        "output_dir": "output/marathon-v2",
     },
-
     # PI Monitor parameters
-    'pi_config': {
-        'alpha': 1.0,
-        'gamma': 0.5,
-    }
+    "pi_config": {
+        "alpha": 1.0,
+        "gamma": 0.5,
+    },
 }

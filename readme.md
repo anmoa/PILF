@@ -58,7 +58,7 @@ SMK is an adaptive scheme that promotes expert specialization and model interpre
 
 ### GaussMoE (Gaussian-Routed MoE)
 
-To address the fundamental flaws of linear gating, we introduced **Gaussian Routing**, which is the core of our current research. It promotes expert specialization and, when paired with SMK, shows excellent resistance to catastrophic forgetting. However, it cannot overcome catastrophic forgetting on its own in a context-free environment.
+To address the fundamental flaws of linear gating, we introduced **Gaussian Routing**, which is the core of our current research. It promotes expert specialization and, when paired with SMK, shows excellent expert functional differentiation. However, it cannot overcome catastrophic forgetting on its own in a context-free environment.
 
 1. **Experts as Distributions**: Each expert is no longer a simple MLP but is defined by a learnable Gaussian distribution (parameterized by a mean `μ` and a log standard deviation `log_sigma`) in the input space, representing its "domain of knowledge."
 2. **Routing as Probability Calculation**: The routing process is no longer a simple linear mapping but involves calculating the log probability density of the input `x` under each expert's Gaussian distribution. This probability reflects how well the input matches an expert's "knowledge domain," which fundamentally promotes the **functional specialization** and **interpretability** of experts.
@@ -69,11 +69,9 @@ This is a dynamic learning rate control mechanism. Unfortunately, it often intro
 
 ## Future Features
 
-### MemoryGaussianMoE
+### Memory Gaussian MoE (MGM)
 
-This mechanism introduces a novel approach to enhance knowledge isolation and achieve natural gradient orthogonalization within Mixture-of-Experts (MoE) models. Instead of explicit memory replay, MemoryGaussianMoE leverages the model's own historical routing decisions. It collects and aggregates past routing distributions from each MoE layer into a buffer, forming a dynamic representation of the model's historical expert activation patterns.
-
-A new `historical_routing_loss` term is then introduced during backpropagation. This loss quantifies the divergence between the current batch's routing distribution and the aggregated historical context. By incorporating this loss, the router's gradient updates are implicitly guided to maintain a learned "orthogonality" or consistency with its past routing behavior. This enables the model to adapt to new tasks while naturally preserving previously acquired knowledge, effectively mitigating catastrophic forgetting.
+This mechanism introduces a novel approach to enhance knowledge isolation and achieve natural gradient orthogonalization within Mixture-of-Experts (MoE) models. Unlike traditional methods that rely on replay or explicit loss terms, MGM utilizes the model's own historical routing decisions to directly influence the router's gradient updates during backpropagation. It collects and aggregates the historical routing distribution from each MoE layer into a buffer, forming a dynamic representation of the model's historical expert activation patterns. A `historical_routing_loss_val` (KL divergence between the current and historical routing distributions) is calculated, but is **not** directly added to the total loss. Instead, its gradient with respect to the router parameters is computed. This "historical gradient" is then dynamically mixed with the main task gradient according to a `(1 - PI)` weight. When the model's Predictive Integrity (PI) is low, the historical influence is higher, thus more strongly guiding the router's update to maintain consistency with past routing behavior. This implicitly guides the router to preserve previously acquired knowledge while learning new tasks through a natural gradient orthogonalization process, effectively mitigating catastrophic forgetting.
 
 ### Dynamic Top-K
 
@@ -105,11 +103,13 @@ After setting up PyTorch, install the framework's dependencies:
 uv pip install -e .[dev]
 ```
 
-All experiments are launched from the root directory using the `train.py` script, which is driven by a **schedule file** and a **model configuration file**.
+All experiments are launched from the root directory using the `main.py` script, which dynamically combines models and training strategies via command-line arguments.
 
-| Script| Main Purpose| Example Command  |
-| :--- | :---- | :--- |
-| `train.py` | Run all types of experiments| `python train.py --schedule <schedule_path> --model-config <model_config_path>`  |
+| Script    | Main Purpose                | Example Command                                                                                                                 |
+| :-------- | :-------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
+| `main.py` | Run all types of experiments| `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --lrs <lr_scheduler>`                |
+| `main.py` | Resume training from checkpoint | `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --lrs <lr_scheduler> --resume-from <ckpt>` |
+| `main.py` | Run a specific combination  | `python main.py --schedule schedules/marathon_v3.py --router memory_gauss --update smk --lrs pilr_d`                              |
 
 ---
 
