@@ -1,8 +1,4 @@
 BASE_CONFIG = {
-    "train_config": {
-        "batch_size": 64,
-        "accumulation_steps": 4,
-    },
     "model_config": {
         "name": "large_vit",
         "img_size": 32,
@@ -13,43 +9,22 @@ BASE_CONFIG = {
         "mlp_ratio": 1.0,
         "num_classes": 10,
         "num_experts": 8,
-        "top_k": 2,
+        "top_k": 4,
     },
     "router_configs": {
-        "linear": {"router_type": "standard"},
-        "gauss": {"router_type": "gaussian_moe"},
-        "memory_gauss": {
+        "dense": {"router_type": "dense"},
+        "moe": {"router_type": "moe"},
+        "gaussian": {"router_type": "gaussian_moe"},
+        "memory_gaussian": {
             "router_type": "memory_gaussian_moe",
-            "memory_beta": 0.9,
-            "rehearsal_weight": 0.5,
+            "gating_config": {
+                "total_buffer_size": 128
+            }
         },
     },
-    "train_strategy_configs": {
-        "standard": {"strategies": [{"name": "Standard"}]},
-        "smk": {
-            "strategies": [
-                {
-                    "name": "SurpriseMinK",
-                    "min_k": 1,
-                    "ema_factor": 0.99,
-                    "ema_update_freq": 10,
-                }
-            ]
-        },
-    },
-    "pilr_configs": {
-        "none": None,
-        "pilr_s": {"name": "PILR_S", "base_lr": 1e-3, "sensitivity": 1.0},
-        "pilr_d": {
-            "name": "PILR_D",
-            "base_lr": 1e-3,
-            "sensitivity": 0.1,
-            "ema_factor": 0.95,
-            "expert_initial_var": 1.0,
-        },
-    },
-    "pi_config": {
-        "alpha": 1.0,
-        "gamma": 0.5,
+    "update_strategy_configs": {
+        "standard": {"name": "Standard"},
+        "selective": {"name": "Selective"},
+        "smk": {"name": "SurpriseMinK", "min_k": 2},
     },
 }

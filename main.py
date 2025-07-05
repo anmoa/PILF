@@ -1,27 +1,28 @@
 import argparse
-import atexit
 import os
 import random
 import subprocess
 import time
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from models import create_model
-from utils.config import load_config
+from configs.unified_config import BASE_CONFIG
+from models import VisionTransformer
+from models.moe_layers import BaseMoELayer
 from utils.datasets import get_dataset
+from utils.experience_buffer import MultiTaskExperienceBuffer
 from utils.logging.plotting import plot_core_metrics, plot_expert_dashboard
 from utils.pi_calculator import PICalculator
-from utils.strategies.learning_rate_strategies import create_lr_strategy
+from utils.strategies.backpropagation_strategies import SurpriseMinKStrategy
 from utils.train_loops.base_train_loop import BaseTrainLoop
-from utils.train_loops.gaussian_train_loop import GaussianTrainLoop
-from utils.train_loops.mgm_train_loop import MGMTrainLoop
+from utils.train_loops.pilf_train_loop import PILFTrainLoop
 from utils.trainer import Trainer
 
 
@@ -32,264 +33,134 @@ def set_seed(seed: int):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-
-tensorboard_process: Optional[subprocess.Popen[bytes]] = None
-
-
-def _cleanup_tensorboard():
-    global tensorboard_process
-    if tensorboard_process:
-        try:
-            print("Shutting down TensorBoard...")
-            tensorboard_process.terminate()
-            tensorboard_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            tensorboard_process.kill()
-            print("TensorBoard process did not terminate gracefully, killed.")
-        finally:
-            tensorboard_process = None
-
-
-class ScheduleRunner:
-    def __init__(self, config, trainer, train_loop, train_loaders, val_loaders, run_name):
-        self.config = config
-        self.trainer = trainer
-        self.train_loop = train_loop
-        self.train_loaders = train_loaders
-        self.val_loaders = val_loaders
-        self.run_name = run_name
-        self.schedule_plan = self._create_schedule_plan()
-        self.task_epochs_map = {
-            task[0]: task[1] for task in self.config.schedule["tasks"]
-        }
-
-    def _create_schedule_plan(self) -> List[Tuple[str, int]]:
-        schedule_config = cast(Dict[str, Any], self.config.schedule)
-        tasks = schedule_config["tasks"]
-        num_cycles = schedule_config.get("num_cycles", 1)
-
-        plan = []
-        for _ in range(num_cycles):
-            for task_name, num_epochs in tasks:
-                if task_name.upper() == "VALIDATE":
-                    plan.append(("VALIDATE", 1))
-                else:
-                    for i in range(num_epochs):
-                        plan.append((task_name, i + 1))
-        return plan
-
-    def run(self):
-        global_step = self.trainer.global_step
-        current_epoch_in_task = self.trainer.current_epoch_in_task
-
-        for task_name, epoch_num_in_task in self.schedule_plan:
-            if task_name.upper() == "VALIDATE":
-                epoch_for_validation = (
-                    max(current_epoch_in_task.values()) if current_epoch_in_task else 1
-                )
-                for val_task, val_loader in self.val_loaders.items():
-                    self.trainer.validate(
-                        val_loader, global_step, epoch_for_validation, val_task
-                    )
-                if self.trainer.is_moe_model:
-                    self.trainer.log_expert_embeddings(global_step)
-                self.trainer.save_checkpoint(self.run_name, epoch_for_validation, global_step)
-                continue
-
-            current_epoch_in_task[task_name] = (
-                current_epoch_in_task.get(task_name, 0) + 1
-            )
-            epoch = current_epoch_in_task[task_name]
-
-            schedule_config = cast(Dict[str, Any], self.config.schedule)
-            total_epochs_for_task = self.task_epochs_map.get(task_name, "N/A")
-            print(
-                f"--- Starting Cycle Epoch {epoch_num_in_task}/{total_epochs_for_task}, Task: {task_name} (Overall Epoch {epoch}) ---"
-            )
-
-            global_step, epoch_results = self.train_loop.train_one_epoch(
-                self.train_loaders[task_name],
-                epoch,
-                global_step,
-                schedule_config["train_config"].get("accumulation_steps", 1),
-                task_name,
-            )
-            self.trainer.epoch_results.extend(epoch_results)
-            self.trainer.global_step = global_step
-            self.trainer.current_epoch_in_task = current_epoch_in_task
-
-    def save_final_plots(self, run_name: str):
-        schedule_config = cast(Dict[str, Any], self.config.schedule)
-        output_dir = os.path.join(
-            str(schedule_config["train_config"]["output_dir"]), run_name, "img"
-        )
-        os.makedirs(output_dir, exist_ok=True)
-
-        if not self.trainer.epoch_results:
-            print("No training steps recorded, skipping plot generation.")
-            return
-
-        core_metrics_fig = plot_core_metrics(
-            self.trainer.epoch_results,
-            self.trainer.validation_history,
-            run_name,
-            self.trainer.num_layers,
-            self.trainer.num_experts,
-        )
-        core_metrics_path = os.path.join(output_dir, f"{run_name}_Core_Metrics.png")
-        core_metrics_fig.savefig(core_metrics_path)
-        plt.close(core_metrics_fig)
-        print(f"Saved core metrics plot: {core_metrics_path}")
-
-        if self.trainer.is_moe_model:
-            expert_dashboard_fig = plot_expert_dashboard(
-                self.trainer.epoch_results,
-                self.trainer.num_layers,
-                self.trainer.num_experts,
-            )
-            expert_dashboard_path = os.path.join(
-                output_dir, f"{run_name}_Expert_Dashboard.png"
-            )
-            expert_dashboard_fig.savefig(expert_dashboard_path)
-            plt.close(expert_dashboard_fig)
-            print(f"Saved expert dashboard plot: {expert_dashboard_path}")
-
+def load_schedule(schedule_path: str) -> Dict[str, Any]:
+    schedule_module_path = f"schedules.{schedule_path.replace('.py', '')}"
+    schedule_module = __import__(schedule_module_path, fromlist=["SCHEDULE", "schedule_config"])
+    if hasattr(schedule_module, "SCHEDULE"):
+        return schedule_module.SCHEDULE
+    elif hasattr(schedule_module, "schedule_config"):
+        return schedule_module.schedule_config
+    else:
+        raise AttributeError(f"Schedule file {schedule_path} must contain either a 'SCHEDULE' or 'schedule_config' dictionary.")
 
 def main():
-    parser = argparse.ArgumentParser(description="PILF Framework Training")
+    parser = argparse.ArgumentParser(description="PILF-2 Framework Training")
     parser.add_argument("--schedule", required=True, help="Path to the schedule file")
-    parser.add_argument(
-        "--config",
-        default="configs/unified_config.py",
-        help="Path to the unified config file",
-    )
-    parser.add_argument(
-        "--router", required=True, help="Routing strategy for MoE layers"
-    )
-    parser.add_argument("--update", required=True, help="Backpropagation strategy")
-    parser.add_argument("--lrs", required=True, help="Learning rate strategy")
+    parser.add_argument("--router", type=str, default="dense", choices=BASE_CONFIG["router_configs"].keys())
+    parser.add_argument("--update", type=str, default="standard", choices=BASE_CONFIG["update_strategy_configs"].keys())
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--resume-from", help="Path to a checkpoint to resume from")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--no-tensorboard", action="store_true", help="Do not launch TensorBoard")
     args = parser.parse_args()
 
     set_seed(args.seed)
-    config = load_config(args)
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    if device.type == "cuda":
-        print(f"PyTorch CUDA version: {torch.version.cuda}")
-        print(f"Is backend CuDNN enabled: {torch.backends.cudnn.enabled}")
-        has_flash_attn = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
-        print(f"Backend Flash Attention 2 available: {has_flash_attn}")
-        if has_flash_attn:
-             print(f"Is backend Flash Attention enabled: {torch.backends.cuda.flash_sdp_enabled()}")
-             print(f"Is backend Memory Efficient Attention enabled: {torch.backends.cuda.mem_efficient_sdp_enabled()}")
-
-
-    schedule_config = cast(Dict[str, Any], config.schedule)
-    train_task_names = [
-        task[0] for task in schedule_config["tasks"] if task[0].upper() != "VALIDATE"
-    ]
-    val_task_names = schedule_config.get("val_datasets", [])
-    all_dataset_names = sorted(list(set(train_task_names + val_task_names)))
-
-    print("Loading datasets...")
-    datasets = {
-        name: get_dataset(
-            name,
-            schedule_config["train_config"]["batch_size"],
-            config.model["img_size"],
-        )
-        for name in all_dataset_names
+    schedule_config = load_schedule(args.schedule)
+    
+    model_cfg = {
+        **BASE_CONFIG["model_config"], 
+        **schedule_config.get("model_config", {}),
+        **BASE_CONFIG["router_configs"][args.router], 
+        **BASE_CONFIG["update_strategy_configs"][args.update]
     }
-    print("Datasets loaded.")
+    train_cfg = schedule_config["train_config"]
+    
+    model = VisionTransformer(**model_cfg).to(device)
 
-    def create_dataloader(task_names, split, shuffle):
-        return {
-            name: torch.utils.data.DataLoader(
-                datasets[name][split],
-                batch_size=schedule_config["train_config"]["batch_size"],
-                shuffle=shuffle,
-                num_workers=4,
-                pin_memory=True,
-            )
-            for name in task_names
-        }
+    main_params = [p for n, p in model.named_parameters() if "gating_transformer" not in n]
+    main_optimizer = optim.Adam(main_params, lr=train_cfg["learning_rate"])
 
-    train_loaders = create_dataloader(train_task_names, "train", True)
-    val_loaders = create_dataloader(val_task_names, "test", False)
+    gating_optimizer = None
+    if model_cfg["router_type"] == "memory_gaussian_moe":
+        gating_params = [p for n, p in model.named_parameters() if "gating_transformer" in n]
+        if gating_params:
+            gating_optimizer = optim.Adam(gating_params, lr=train_cfg.get("gating_learning_rate", train_cfg["learning_rate"]))
 
-    model = create_model(config.model).to(device)
-    optimizer = optim.Adam(
-        model.get_param_groups(), lr=schedule_config["train_config"]["learning_rate"]
-    )
-    loss_fn = nn.CrossEntropyLoss()
-
-    pi_config = cast(Dict[str, Any], config.pi)
-
+    pi_calculator = PICalculator(**schedule_config.get("pi_config", {}), device=device)
+    
     strategy_components = []
-    if config.pilr:
-        strategy_components.append(create_lr_strategy(config.pilr))
+    if args.update == "smk":
+        strategy_components.append(SurpriseMinKStrategy(min_k=model_cfg.get("min_k", 1)))
 
-    run_name = f"{schedule_config['name']}-{config.model.get('name', 'model')}-{args.router}-{args.update}-{args.lrs}-{time.strftime('%Y%m%d-%H%M%S')}"
-    writer = SummaryWriter(f"runs/{run_name}")
+    run_name = f"{schedule_config['name']}-{args.router}-{args.update}-{time.strftime('%Y%m%d-%H%M%S')}"
+    output_dir = f"output/{run_name}"
+    log_dir = f"{output_dir}/logs"
+    writer = SummaryWriter(log_dir)
 
-    global tensorboard_process
-    log_dir = f"runs/{run_name}"
-    os.makedirs(log_dir, exist_ok=True)
-    tb_command = ["tensorboard", "--logdir", log_dir, "--port", "6006"]
-    try:
-        tensorboard_process = subprocess.Popen(
-            tb_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-    except FileNotFoundError:
-        print(
-            "TensorBoard not found. Please make sure it is installed and in your PATH."
-        )
-        tensorboard_process = None
-    atexit.register(_cleanup_tensorboard)
-    print("TensorBoard launched. View at: http://127.0.0.1:6006")
-
-    pi_calculator = PICalculator(
-        alpha=pi_config.get("alpha", 1.0),
-        gamma=pi_config.get("gamma", 0.5),
-        device=device,
-    )
+    if not args.no_tensorboard:
+        subprocess.Popen(["tensorboard", "--logdir", "output"])
 
     trainer = Trainer(
         model=model,
-        optimizer=optimizer,
-        loss_fn=loss_fn,
+        optimizer=main_optimizer,
+        gating_optimizer=gating_optimizer,
+        loss_fn=nn.CrossEntropyLoss(),
         strategy_components=strategy_components,
         device=device,
         writer=writer,
-        num_layers=config.model.get("depth", 0),
-        num_experts=config.model.get("num_experts", 0),
         pi_calculator=pi_calculator,
     )
 
-    router_type = config.model.get("router_type", "").lower()
-    if "memory_gaussian" in router_type:
-        train_loop = MGMTrainLoop(trainer)
-    elif "gaussian" in router_type:
-        train_loop = GaussianTrainLoop(trainer)
+    if model_cfg["router_type"] == "memory_gaussian_moe":
+        gating_config = model_cfg.get("gating_config", {})
+        pilf_schedule_config = schedule_config.get("pilf_config", {})
+        gating_config.update(pilf_schedule_config)
+
+        buffer_size = gating_config.pop("buffer_size", gating_config.get("total_buffer_size", 2048))
+
+        all_task_names = list(set(task[0] for task in schedule_config["tasks"] if task[0] != "VALIDATE"))
+        experience_buffer = MultiTaskExperienceBuffer(
+            task_names=all_task_names,
+            total_buffer_size=buffer_size,
+            embed_dim=model_cfg["embed_dim"],
+            device=device,
+        )
+        train_loop = PILFTrainLoop(trainer, experience_buffer, gating_config)
     else:
         train_loop = BaseTrainLoop(trainer)
 
     if args.resume_from:
         trainer.load_checkpoint(args.resume_from)
 
-    runner = ScheduleRunner(config, trainer, train_loop, train_loaders, val_loaders, run_name)
-    runner.run()
+    all_dataset_names = set(schedule_config.get("val_datasets", [])) | {task[0] for task in schedule_config.get("tasks", [])}
+    datasets = {name: get_dataset(name, img_size=model_cfg["img_size"]) for name in all_dataset_names if name != "VALIDATE"}
 
-    final_epoch = max(runner.trainer.current_epoch_in_task.values()) if runner.trainer.current_epoch_in_task else 0
-    trainer.save_checkpoint(run_name, final_epoch, runner.trainer.global_step, is_final=True)
-    runner.save_final_plots(run_name)
+    for cycle in range(schedule_config.get("num_cycles", 1)):
+        for task_name, num_epochs in schedule_config["tasks"]:
+            if task_name == "VALIDATE":
+                for val_task in schedule_config.get("val_datasets", []):
+                    val_loader = DataLoader(datasets[val_task], batch_size=train_cfg["batch_size"], shuffle=False)
+                    trainer.validate(val_loader, trainer.global_step, cycle, val_task)
+                continue
 
+            train_loader = DataLoader(datasets[task_name], batch_size=train_cfg["batch_size"], shuffle=True)
+            for epoch in range(1, num_epochs + 1):
+                print(f"--- Cycle {cycle+1}, Task {task_name}, Epoch {epoch}/{num_epochs} ---")
+                train_loop.train_one_epoch(train_loader, epoch, task_name)
+    
+    # Final logging and plotting
+    fig_core = plot_core_metrics(trainer.epoch_results, trainer.validation_history, run_name)
+    core_plot_path = os.path.join(output_dir, "img", "core_metrics_final.png")
+    os.makedirs(os.path.dirname(core_plot_path), exist_ok=True)
+    fig_core.savefig(core_plot_path)
+    plt.close(fig_core)
+
+    moe_blocks = [block for block in model.blocks if isinstance(block.mlp, BaseMoELayer)]
+    if moe_blocks:
+        num_layers = len(moe_blocks)
+        num_experts = moe_blocks[0].mlp.num_experts
+        fig_expert = plot_expert_dashboard(trainer.epoch_results, num_layers, num_experts)
+        expert_plot_path = os.path.join(output_dir, "img", "expert_dashboard_final.png")
+        os.makedirs(os.path.dirname(expert_plot_path), exist_ok=True)
+        fig_expert.savefig(expert_plot_path)
+        plt.close(fig_expert)
+
+    if schedule_config.get("num_cycles", 1) > 1 or len(schedule_config["tasks"]) > 1:
+        trainer.save_checkpoint(run_name, epoch=schedule_config["tasks"][-1][1], is_final=True)
+    
     writer.close()
     print("Training finished.")
-
 
 if __name__ == "__main__":
     main()

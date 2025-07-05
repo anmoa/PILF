@@ -6,6 +6,7 @@ import torch
 class StepResult(TypedDict, total=False):
     loss: float
     accuracy: float
+    routing_accuracy: float
     task_name: str
     global_step: int
     pi_score: float

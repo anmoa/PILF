@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional, cast
+from typing import Dict, List
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -8,151 +8,15 @@ from utils.logging.types import StepResult, ValidationResult
 
 matplotlib.use("Agg")
 
-def plot_expert_scatter(
-    ax: plt.Axes,
-    train_steps: List[StepResult],
-    num_layers: int,
-    num_experts: int,
-    expert_indices_key: str,
-    title: str,
-):
-    ax.set_title(title)
-    ax.set_xlabel("Global Step")
-    ax.set_ylabel("Layer * Num_Experts + Expert_ID")
-    ax.grid(True, linestyle="--", alpha=0.6)
-    
-    task_names = sorted(list(set(s["task_name"] for s in train_steps)))
-    task_colors = {
-        task: plt.cm.get_cmap("tab10", len(task_names))(i)
-        for i, task in enumerate(task_names)
-    }
-
-    y_ticks = []
-    y_tick_labels = []
-
-    for layer_idx in range(num_layers):
-        for expert_id in range(num_experts):
-            y_pos = layer_idx * num_experts + expert_id
-            y_ticks.append(y_pos)
-            y_tick_labels.append(f"L{layer_idx} E{expert_id}")
-
-    ax.set_yticks(y_ticks)
-    ax.set_yticklabels(y_tick_labels, fontsize=8)
-    ax.set_ylim(-0.5, num_layers * num_experts - 0.5)
-
-    for step_result in train_steps:
-        global_step = step_result["global_step"]
-        task_name = step_result["task_name"]
-        
-        expert_indices_dict = cast(
-            Optional[Dict[int, List[int]]], step_result.get(expert_indices_key)
-        )
-        if expert_indices_dict:
-            for layer_idx, expert_ids in expert_indices_dict.items():
-                for expert_id in expert_ids:
-                    y_pos = layer_idx * num_experts + expert_id
-                    ax.scatter(
-                        global_step,
-                        y_pos,
-                        color=task_colors[task_name],
-                        s=15,
-                        alpha=0.5,
-                    )
-
-def plot_expert_heatmap(
-    ax: plt.Axes,
-    train_steps: List[StepResult],
-    num_layers: int,
-    num_experts: int,
-    expert_indices_key: str,
-    title: str,
-):
-    task_names = sorted(list(set(s["task_name"] for s in train_steps)))
-    activation_counts = np.zeros((num_layers * num_experts, len(task_names)))
-
-    for step in train_steps:
-        task_idx = task_names.index(step["task_name"])
-        expert_indices_dict = cast(
-            Optional[Dict[int, List[int]]], step.get(expert_indices_key)
-        )
-        if expert_indices_dict:
-            for layer_idx, expert_ids in expert_indices_dict.items():
-                for expert_id in expert_ids:
-                    y_pos = layer_idx * num_experts + expert_id
-                    if y_pos < activation_counts.shape[0]:
-                        activation_counts[y_pos, task_idx] += 1
-    
-    im = ax.imshow(activation_counts, cmap="viridis", aspect="auto")
-    ax.set_title(title)
-    ax.set_xticks(np.arange(len(task_names)))
-    ax.set_xticklabels(task_names, rotation=45, ha="right")
-    ax.set_ylabel("Layer * Num_Experts + Expert_ID")
-    
-    y_ticks = np.arange(num_layers * num_experts)
-    y_tick_labels = [f"L{l}E{e}" for l in range(num_layers) for e in range(num_experts)]
-    ax.set_yticks(y_ticks)
-    ax.set_yticklabels(y_tick_labels, fontsize=6)
-    
-    return im
-
-def plot_expert_dashboard(
-    train_steps: List[StepResult], num_layers: int, num_experts: int
-) -> plt.Figure:
-    fig, axes = plt.subplots(2, 2, figsize=(20, 18), constrained_layout=True)
-    fig.suptitle("Expert Activation Dashboard", fontsize=16)
-
-    plot_expert_scatter(
-        axes[0, 0],
-        train_steps,
-        num_layers,
-        num_experts,
-        "top_k_expert_indices",
-        "Top-K Activation Scatter",
-    )
-    plot_expert_scatter(
-        axes[0, 1],
-        train_steps,
-        num_layers,
-        num_experts,
-        "surprise_min_k_expert_indices",
-        "Surprise Min-K Activation Scatter",
-    )
-    
-    im1 = plot_expert_heatmap(
-        axes[1, 0],
-        train_steps,
-        num_layers,
-        num_experts,
-        "top_k_expert_indices",
-        "Top-K Activation Heatmap",
-    )
-    
-    im2 = plot_expert_heatmap(
-        axes[1, 1],
-        train_steps,
-        num_layers,
-        num_experts,
-        "surprise_min_k_expert_indices",
-        "Surprise Min-K Activation Heatmap",
-    )
-
-    fig.colorbar(im1, ax=axes[1, 0], shrink=0.8)
-    fig.colorbar(im2, ax=axes[1, 1], shrink=0.8)
-
-    return fig
-
 def plot_core_metrics(
     train_steps: List[StepResult],
     val_logs: Dict[str, List[ValidationResult]],
     run_name: str,
-    num_layers: int,
-    num_experts: int,
 ) -> plt.Figure:
     fig, axes = plt.subplots(3, 2, figsize=(20, 15), constrained_layout=True)
     fig.suptitle(f"Core Metrics for {run_name}", fontsize=16)
 
-    MetricKey = Literal["loss", "accuracy", "pi_score", "surprise", "tau"]
-    metrics_to_plot: Dict[MetricKey, str] = {
+    metrics_to_plot = {
         "loss": "Loss",
         "accuracy": "Accuracy",
         "pi_score": "PI Score",
@@ -172,7 +36,7 @@ def plot_core_metrics(
         for task_name in task_names:
             task_specific_steps = [s for s in train_steps if s["task_name"] == task_name]
             train_data = [
-                (s["global_step"], s[metric])
+                (s["global_step"], s.get(metric))
                 for s in task_specific_steps
                 if s.get(metric) is not None
             ]
@@ -188,7 +52,7 @@ def plot_core_metrics(
 
         for task, val_data in val_logs.items():
             val_points = [
-                (v["global_step"], v[metric])
+                (v["global_step"], v.get(metric))
                 for v in val_data
                 if v.get(metric) is not None
             ]
@@ -207,7 +71,6 @@ def plot_core_metrics(
         ax.set_ylabel(title)
         ax.grid(True, linestyle="--", alpha=0.6)
 
-    # Legend subplot
     legend_ax = axes_flat[5]
     legend_ax.axis("off")
     handles, labels = [], []
@@ -221,3 +84,82 @@ def plot_core_metrics(
         legend_ax.legend(handles, labels, loc="center", fontsize="large")
 
     return fig
+
+
+def plot_expert_dashboard(
+    train_steps: List[StepResult], num_layers: int, num_experts: int
+) -> plt.Figure:
+    fig, axes = plt.subplots(2, 2, figsize=(20, 18), constrained_layout=True)
+    fig.suptitle("Expert Activation Dashboard", fontsize=16)
+
+    plot_expert_scatter(axes[0, 0], train_steps, num_layers, num_experts, "top_k_expert_indices", "Top-K Activation Scatter")
+    plot_expert_heatmap(axes[1, 0], train_steps, num_layers, num_experts, "top_k_expert_indices", "Top-K Activation Heatmap")
+
+    if any("surprise_min_k_expert_indices" in step for step in train_steps):
+        plot_expert_scatter(axes[0, 1], train_steps, num_layers, num_experts, "surprise_min_k_expert_indices", "Surprise Min-K Activation Scatter")
+        plot_expert_heatmap(axes[1, 1], train_steps, num_layers, num_experts, "surprise_min_k_expert_indices", "Surprise Min-K Activation Heatmap")
+    else:
+        for ax in [axes[0, 1], axes[1, 1]]:
+            ax.text(0.5, 0.5, "N/A for non-SMK mode", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+    return fig
+
+
+def plot_expert_scatter(ax, train_steps, num_layers, num_experts, key, title):
+    ax.set_title(title)
+    ax.set_xlabel("Global Step")
+    ax.set_ylabel("Expert ID")
+    ax.grid(True, linestyle="--", alpha=0.6)
+    
+    task_names = sorted(list(set(s["task_name"] for s in train_steps)))
+    task_colors = {
+        task: plt.cm.get_cmap("tab10", len(task_names))(i)
+        for i, task in enumerate(task_names)
+    }
+
+    ax.set_ylim(-0.5, num_layers * num_experts - 0.5)
+    ax.set_yticks(np.arange(0, num_layers * num_experts, num_experts))
+    ax.set_yticklabels([f"Layer {i}" for i in range(num_layers)])
+
+    points = []
+    for step in train_steps:
+        if key in step:
+            for layer_idx, expert_ids in step[key].items():
+                for expert_id in expert_ids:
+                    points.append((step["global_step"], layer_idx * num_experts + expert_id, task_colors[step["task_name"]]))
+
+    if points:
+        if len(points) > 5000:
+            rng = np.random.default_rng()
+            sampled_indices = rng.choice(len(points), size=5000, replace=False)
+            points = [points[i] for i in sampled_indices]
+
+        steps, y_pos, colors = zip(*points, strict=False)
+        ax.scatter(steps, y_pos, c=colors, s=10, alpha=0.5, edgecolors='none')
+
+
+def plot_expert_heatmap(ax, train_steps, num_layers, num_experts, key, title):
+    ax.set_title(title)
+    task_names = sorted(list(set(s["task_name"] for s in train_steps)))
+    
+    counts = np.zeros((num_layers * num_experts, len(task_names)))
+    for step in train_steps:
+        if key in step:
+            task_idx = task_names.index(step["task_name"])
+            for layer_idx, expert_ids in step[key].items():
+                for expert_id in expert_ids:
+                    counts[layer_idx * num_experts + expert_id, task_idx] += 1
+    
+    normalized_counts = counts / (counts.sum(axis=0, keepdims=True) + 1e-9)
+    im = ax.imshow(normalized_counts, cmap="viridis", aspect="auto")
+    
+    ax.set_xticks(np.arange(len(task_names)))
+    ax.set_xticklabels(task_names, rotation=45, ha="right")
+    ax.set_ylabel("Expert")
+    
+    y_tick_labels = [f"L{l}E{e}" for l in range(num_layers) for e in range(num_experts)]
+    ax.set_yticks(np.arange(len(y_tick_labels)))
+    ax.set_yticklabels(y_tick_labels, rotation=0, fontsize=6)
+    plt.colorbar(im, ax=ax)

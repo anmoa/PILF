@@ -53,7 +53,7 @@ class TransformerBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(
-        self, x: torch.Tensor
+        self, x: torch.Tensor, experience_buffer=None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
         x_norm = self.norm1(x)
         attn_output, _ = self.attn(x_norm, x_norm, x_norm)
@@ -61,7 +61,11 @@ class TransformerBlock(nn.Module):
 
         x_norm = self.norm2(x)
 
-        if isinstance(self.mlp, BaseMoELayer):
+        if isinstance(self.mlp, MemoryGaussianMoELayer):
+            mlp_output, routing_info = self.mlp(x_norm, experience_buffer)
+            x = x + self.dropout(mlp_output)
+            return x, routing_info
+        elif isinstance(self.mlp, BaseMoELayer):
             mlp_output, routing_info = self.mlp(x_norm)
             x = x + self.dropout(mlp_output)
             return x, routing_info
@@ -101,11 +105,12 @@ class VisionTransformer(nn.Module):
         for _ in range(depth):
             mlp_layer: nn.Module
             if router_type == "dense":
+                dense_mlp_dim = mlp_dim * num_experts
                 mlp_layer = nn.Sequential(
-                    nn.Linear(embed_dim, mlp_dim),
+                    nn.Linear(embed_dim, dense_mlp_dim),
                     nn.GELU(),
                     nn.Dropout(dropout),
-                    nn.Linear(mlp_dim, embed_dim),
+                    nn.Linear(dense_mlp_dim, embed_dim),
                     nn.Dropout(dropout),
                 )
             elif router_type == "moe":
@@ -122,6 +127,7 @@ class VisionTransformer(nn.Module):
                     num_experts,
                     top_k,
                     num_heads=num_heads,
+                    **kwargs.get("gating_config", {}),
                 )
             else:
                 raise ValueError(f"Unknown router type: {router_type}")
@@ -134,7 +140,7 @@ class VisionTransformer(nn.Module):
         self.head = nn.Linear(embed_dim, num_classes)
 
     def forward(
-        self, x: torch.Tensor
+        self, x: torch.Tensor, experience_buffer=None
     ) -> Tuple[torch.Tensor, Union[List[Dict[str, Any]], None]]:
         B = x.shape[0]
         x = self.patch_embed(x)
@@ -147,7 +153,7 @@ class VisionTransformer(nn.Module):
 
         all_routing_info: List[Dict[str, Any]] = []
         for block in self.blocks:
-            block_output = block(x)
+            block_output = block(x, experience_buffer)
             if isinstance(block_output, tuple):
                 x, routing_info = block_output
                 all_routing_info.append(routing_info)
@@ -159,46 +165,4 @@ class VisionTransformer(nn.Module):
         cls_token_final = x[:, 0]
         logits = self.head(cls_token_final)
 
-        if all_routing_info:
-            return logits, all_routing_info
-        else:
-            return logits, None
-
-
-    def get_param_groups(self) -> List[Dict[str, Any]]:
-        gating_param_ids = set()
-        expert_param_ids = set()
-
-        for block in self.blocks:
-            if isinstance(block.mlp, BaseMoELayer):
-                if isinstance(block.mlp, GaussianMoELayer):
-                    gating_param_ids.add(id(block.mlp.expert_mus))
-                    gating_param_ids.add(id(block.mlp.expert_log_sigmas))
-                    if isinstance(block.mlp, MemoryGaussianMoELayer):
-                        for param in block.mlp.gating_transformer.parameters():
-                            gating_param_ids.add(id(param))
-                elif isinstance(block.mlp, MoELayer):
-                    for param in block.mlp.gating.parameters():
-                        gating_param_ids.add(id(param))
-
-                for param in block.mlp.experts.parameters():
-                    expert_param_ids.add(id(param))
-
-        gating_params = []
-        expert_params = []
-        base_params = []
-
-        for _, param in self.named_parameters():
-            param_id = id(param)
-            if param_id in gating_param_ids:
-                gating_params.append(param)
-            elif param_id in expert_param_ids:
-                expert_params.append(param)
-            else:
-                base_params.append(param)
-
-        return [
-            {"params": base_params, "name": "base"},
-            {"params": gating_params, "name": "gating"},
-            {"params": expert_params, "name": "experts"},
-        ]
+        return logits, all_routing_info if all_routing_info else None

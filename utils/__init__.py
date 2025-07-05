@@ -1,29 +1,22 @@
-from .config import load_config
 from .datasets import get_dataset
-from .gating_loss import CompositeGatingLoss
-from .logging import (
-    StepResult,
-    TensorBoardLogger,
-    ValidationResult,
-    plot_core_metrics,
-    plot_expert_heatmap,
-    plot_expert_scatter,
-)
-from .optimizers import create_optimizer
+from .experience_buffer import MultiTaskExperienceBuffer
+from .logging.types import StepResult, ValidationResult
 from .pi_calculator import PICalculator
+from .strategies.backpropagation_strategies import SurpriseMinKStrategy
+from .strategies.base_strategy import StrategyComponent
+from .train_loops.base_train_loop import BaseTrainLoop
+from .train_loops.pilf_train_loop import PILFTrainLoop
 from .trainer import Trainer
 
 __all__ = [
-    "load_config",
     "get_dataset",
-    "create_optimizer",
-    "TensorBoardLogger",
-    "plot_core_metrics",
-    "plot_expert_heatmap",
-    "plot_expert_scatter",
-    "Trainer",
+    "MultiTaskExperienceBuffer",
     "StepResult",
     "ValidationResult",
     "PICalculator",
-    "CompositeGatingLoss",
+    "Trainer",
+    "BaseTrainLoop",
+    "PILFTrainLoop",
+    "StrategyComponent",
+    "SurpriseMinKStrategy",
 ]

@@ -29,7 +29,10 @@ class TensorBoardLogger:
             elif "lr" in key or "sigma" in key:
                 category = "PILR"
 
-            tag = f"{scope}/{task_name}/{category}/{tag_key}"
+            if key.startswith("gating_"):
+                tag = f"{scope}/{category}/{tag_key}"
+            else:
+                tag = f"{scope}/{task_name}/{category}/{tag_key}"
             self.writer.add_scalar(tag, value, self.global_step)
 
         self.writer.flush()
