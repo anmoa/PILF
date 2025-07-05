@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.experience_buffer import PrototypingExperienceBuffer
+
 from .gating_transformer import GatingTransformer
 
 
@@ -36,7 +38,7 @@ class BaseMoELayer(nn.Module, ABC):
         )
 
     @abstractmethod
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
+    def forward(self, x: torch.Tensor, experience_buffer: PrototypingExperienceBuffer | None = None, **kwargs) -> Tuple[torch.Tensor, Dict[str, Any]]:
         pass
 
 
@@ -52,7 +54,7 @@ class MoELayer(BaseMoELayer):
         super().__init__(in_features, hidden_features, out_features, num_experts, top_k)
         self.gating = nn.Linear(in_features, num_experts)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
+    def forward(self, x: torch.Tensor, experience_buffer: PrototypingExperienceBuffer | None = None, **kwargs) -> Tuple[torch.Tensor, Dict[str, Any]]:
         batch_size, num_tokens, in_features = x.shape
         x_flat = x.view(-1, in_features)
 
@@ -91,7 +93,7 @@ class GaussianMoELayer(BaseMoELayer):
         self.expert_mus = nn.Parameter(torch.randn(num_experts, in_features))
         self.expert_log_sigmas = nn.Parameter(torch.zeros(num_experts, in_features))
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
+    def forward(self, x: torch.Tensor, experience_buffer: PrototypingExperienceBuffer | None = None, **kwargs) -> Tuple[torch.Tensor, Dict[str, Any]]:
         batch_size, num_tokens, in_features = x.shape
         x_flat = x.view(-1, in_features)
 
@@ -120,7 +122,7 @@ class GaussianMoELayer(BaseMoELayer):
         return final_output, routing_info
 
 
-class MemoryGaussianMoELayer(GaussianMoELayer):
+class MemoryGaussianMoELayer(BaseMoELayer):
     def __init__(
         self,
         in_features: int,
@@ -128,68 +130,77 @@ class MemoryGaussianMoELayer(GaussianMoELayer):
         out_features: int,
         num_experts: int,
         top_k: int = 2,
-        num_heads: int = 4,
+        gating_transformer_layers: int = 2,
+        gating_transformer_heads: int = 4,
+        history_size: int = 10,
         **kwargs,
     ):
-        super().__init__(
-            in_features, hidden_features, out_features, num_experts, top_k
-        )
+        super().__init__(in_features, hidden_features, out_features, num_experts, top_k)
+        self.history_size = history_size
         self.gating_transformer = GatingTransformer(
-            in_features, num_heads, in_features, num_experts
+            embed_dim=in_features,
+            num_heads=gating_transformer_heads,
+            num_layers=gating_transformer_layers,
+            num_experts=num_experts,
         )
-        self.raw_gating_proj = nn.Linear(in_features, num_experts)
 
-    def forward(self, x: torch.Tensor, experience_buffer=None) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        batch_size, num_tokens, in_features = x.shape
-        x_flat = x.view(-1, in_features)
-
-        raw_logits = self.raw_gating_proj(x_flat)
+    def forward(self, x: torch.Tensor, experience_buffer: PrototypingExperienceBuffer | None = None, **kwargs) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        if experience_buffer is None:
+            raise ValueError("MemoryGaussianMoELayer requires an experience_buffer.")
         
-        history_context = torch.zeros_like(raw_logits)
-        if experience_buffer and experience_buffer.current_size > 0:
-            q_hist, _, _ = experience_buffer.sample(experience_buffer.current_size)
-            
-            if q_hist.numel() > 0:
-                x_agg = x.mean(dim=1)
-                
-                full_sequence = torch.cat([q_hist, x_agg], dim=0)
-                
-                processed_sequence = self.gating_transformer(full_sequence.unsqueeze(0), full_sequence.unsqueeze(0), full_sequence.unsqueeze(0)).squeeze(0)
-                
-                history_context_agg = processed_sequence[q_hist.size(0):]
-                
-                history_context = history_context_agg.repeat_interleave(num_tokens, dim=0)
+        batch_size, num_tokens, in_features = x.shape
 
-        gating_logits = raw_logits + history_context
-        weights = F.softmax(gating_logits, dim=-1)
-        weights_top_k, top_indices = torch.topk(weights, self.top_k, dim=-1)
-        weights_top_k = weights_top_k / (weights_top_k.sum(dim=-1, keepdim=True) + 1e-9)
+        q_subjects = x.mean(dim=1)
+        
+        retrieved_history = experience_buffer.retrieve_similar(q_subjects, k=self.history_size)
+        
+        q_subjects_unsqueezed = q_subjects.unsqueeze(1)
+
+        gating_input_sequence = torch.cat([retrieved_history, q_subjects_unsqueezed], dim=1)
+        
+        gating_output_sequence = self.gating_transformer(gating_input_sequence)
+        
+        gating_logits = gating_output_sequence[:, -1, :]
+        
+        weights, top_indices = torch.topk(gating_logits, self.top_k, dim=-1)
+        weights = F.softmax(weights, dim=-1).to(x.dtype)
+
+        weights_expanded = weights.unsqueeze(1).expand(-1, num_tokens, -1)
+        top_indices_expanded = top_indices.unsqueeze(1).expand(-1, num_tokens, -1)
+        
+        x_flat = x.view(-1, in_features)
+        weights_flat = weights_expanded.reshape(-1, self.top_k)
+        top_indices_flat = top_indices_expanded.reshape(-1, self.top_k)
 
         y = torch.zeros_like(x_flat)
         for i, expert in enumerate(self.experts):
-            token_indices, expert_indices = (top_indices == i).nonzero(as_tuple=True)
+            token_indices, expert_indices = (top_indices_flat == i).nonzero(as_tuple=True)
             if token_indices.numel() > 0:
                 tokens_for_expert = x_flat[token_indices]
                 expert_output = expert(tokens_for_expert)
-                y.index_add_(0, token_indices, (weights_top_k[token_indices, expert_indices, None] * expert_output))
+                y.index_add_(0, token_indices, (weights_flat[token_indices, expert_indices, None] * expert_output))
 
         final_output = y.view(batch_size, num_tokens, -1)
 
         routing_info = {
-            "log_probs": F.log_softmax(gating_logits, dim=-1).view(batch_size, num_tokens, -1),
-            "weights": weights.view(batch_size, num_tokens, -1),
-            "top_indices": top_indices.view(batch_size, num_tokens, -1),
-            "gating_logits": gating_logits.detach(),
-            "q_embedding": x_flat.detach(),
+            "gating_logits": gating_logits,
+            "top_indices": top_indices,
+            "q_embedding": q_subjects.detach(),
         }
 
         return final_output, routing_info
 
-    def meta_train(self, q_rehearsal: torch.Tensor, a_rehearsal: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        q_hist_processed = self.gating_transformer(q_rehearsal.unsqueeze(0), q_rehearsal.unsqueeze(0), q_rehearsal.unsqueeze(0)).squeeze(0)
+    def meta_train(self, q_rehearsal: torch.Tensor, a_rehearsal: torch.Tensor, experience_buffer: PrototypingExperienceBuffer) -> torch.Tensor:
+        retrieved_history = experience_buffer.retrieve_similar(q_rehearsal, k=self.history_size)
         
-        loss = F.cross_entropy(q_hist_processed, a_rehearsal, reduction='mean')
+        q_rehearsal_unsqueezed = q_rehearsal.unsqueeze(1)
         
-        td_error = F.cross_entropy(q_hist_processed.detach(), a_rehearsal, reduction='none')
+        gating_input_sequence = torch.cat([retrieved_history, q_rehearsal_unsqueezed], dim=1)
         
-        return loss, td_error
+        gating_output_sequence = self.gating_transformer(gating_input_sequence)
+        
+        gating_logits = gating_output_sequence[:, -1, :]
+
+        loss = F.binary_cross_entropy_with_logits(gating_logits, a_rehearsal)
+        
+        return loss

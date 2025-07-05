@@ -18,13 +18,15 @@ BASE_CONFIG = {
         "memory_gaussian": {
             "router_type": "memory_gaussian_moe",
             "gating_config": {
-                "total_buffer_size": 128
+                "total_buffer_size": 128,
+                "priority_decay": 0.99
             }
         },
     },
     "update_strategy_configs": {
         "standard": {"name": "Standard"},
         "selective": {"name": "Selective"},
-        "smk": {"name": "SurpriseMinK", "min_k": 2},
+        "smk": {"name": "SurpriseMinK", "min_k": 4},
+        "asmk": {"name": "ActivatedSurpriseMinK", "min_k": 2},
     },
 }

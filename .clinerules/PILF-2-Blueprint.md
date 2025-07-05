@@ -81,7 +81,9 @@ graph TD
         A --> E{"模型 h_t-1 (VisionTransformer<br>GaussianMoELayer)"};
 
         subgraph "主任务前向传播 (Inference)"
-            E -- "输入表征 q" --> GT{GatingTransformer};
+            E -- "输入表征 q" --> BuildContext{"构建上下文序列"};
+            REB -- "检索历史经验" --> BuildContext;
+            BuildContext -- "[history, q]" --> GT{GatingTransformer};
             GT -- "路由决策 (top_k)" --> Experts;
             Experts -- "最终输出" --> Loss;
         end
@@ -118,7 +120,7 @@ PILF-2 的训练流程即是其 HyperRNN 的状态转移函数 `f` 的具体执�
 此阶段的目标是根据新输入 `x_t` 更新专家知识，并采集有价值的经验。
 
 1. **特征提取**: 输入数据 `x` 通过 `VisionTransformer` 的主干网络，生成输入表征 `q`。
-2. **路由决策**: `GatingTransformer` (策略网络) 接收 `q`，输出一个路由概率分布，并选择 `top_k` 个专家进行激活。
+2. **路由决策 (Routing Decision)**: 此过程采用检索增强机制。首先，使用输入表征 `q` 从 `RoutingExperienceBuffer` 中检索出相关的历史经验。然后，将这些历史经验与当前的 `q` 拼接成一个上下文序列，并将其输入到 `GatingTransformer`。`GatingTransformer` 处理该序列，并根据其输出来选择 `top_k` 个专家进行激活。
 3. **前向传播**: `q` 被路由至已激活的 `top_k` 个专家，计算得到最终的模型输出 `logits`。
 4. **专家损失计算**: 根据模型输出和真实标签 `y`，计算主任务损失 `expert_loss`。
 5. **梯度与 Surprise 计算**: 对 `expert_loss` 进行反向传播，计算并存储每个激活专家的梯度范数（`Surprise`）。

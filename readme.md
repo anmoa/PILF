@@ -48,8 +48,10 @@ graph LR
         A[Input Data] --> B{PI_Calculator};
         A --> E{"Model (VisionTransformer <br> GaussianMoELayer)"};
 
-        subgraph "Main Task Forward Pass"
-            E -- "Input Representation" --> GT{GatingTransformer};
+        subgraph "Main Task Forward Pass (Retrieval-Augmented)"
+            E -- "Input Representation q" --> BuildContext{"Build Context Sequence"};
+            REB -- "Retrieve Historical Experience" --> BuildContext;
+            BuildContext -- "[history, q]" --> GT{GatingTransformer};
             GT -- "Routing Decision (top_k)" --> Experts;
             Experts -- "Final Output" --> Loss;
         end
@@ -59,7 +61,7 @@ graph LR
 
         subgraph "Meta-Learning & Memory Update"
             B -- "Tau, Surprise" --> Curation{Routing Experience Curation};
-            E -- "Input Representation" --> Curation;
+            E -- "Input Representation q" --> Curation;
             SMK -- "min_k Expert Indices" --> Curation;
             Curation -- "High-Value Experience" --> REB[RoutingExperienceBuffer];
 
@@ -73,7 +75,7 @@ graph LR
 
 PILF-2 training involves three phases:
 
-1. **Main Task Optimization & Experience Collection**: Input data is processed by `VisionTransformer` and `GatingTransformer` to activate `top_k` experts. `expert_loss` is calculated, and `Surprise` is used by `SMK` to select `min_k` experts for updates. High-value routing events (based on `Tau` and `Surprise`) are stored in `RoutingExperienceBuffer`.
+1. **Main Task Optimization & Experience Collection**: Input data is processed by `VisionTransformer` to generate an input representation `q`. This `q` is used to retrieve relevant historical experiences from the `RoutingExperienceBuffer`. Both are then fed into the `GatingTransformer` to activate `top_k` experts. `expert_loss` is calculated, and `Surprise` is used by `SMK` to select `min_k` experts for updates. High-value routing events (based on `Tau` and `Surprise`) are stored in `RoutingExperienceBuffer`.
 2. **Gating Network Policy Optimization**: Periodically, `GatingTransformer` is trained on sampled historical experiences from `RoutingExperienceBuffer` to learn successful routing decisions, using a supervised learning approach.
 3. **Parameter Updates Application**: Gradients from both main task optimization (SMK-filtered) and gating network optimization are applied to update respective model parameters.
 
@@ -113,9 +115,9 @@ All experiments are launched from the root directory using the `main.py` script,
 
 | Script    | Main Purpose                | Example Command                                                                                                                 |
 | :-------- | :-------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| `main.py` | Run all types of experiments| `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --lrs <lr_scheduler>`                |
-| `main.py` | Resume training from checkpoint | `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --lrs <lr_scheduler> --resume-from <ckpt>` |
-| `main.py` | Run a specific combination  | `python main.py --schedule schedules/marathon_v3.py --router memory_gauss --update smk --lrs pilr_d`                              |
+| `main.py` | Run all types of experiments| `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy>`                |
+| `main.py` | Resume training from checkpoint | `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --resume-from <ckpt>` |
+| `main.py` | Run a specific combination  | `python main.py --schedule marathon_v3 --router memory_gaussian --update smk`      |
 
 ---
 

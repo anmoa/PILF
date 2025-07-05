@@ -17,10 +17,13 @@ from configs.unified_config import BASE_CONFIG
 from models import VisionTransformer
 from models.moe_layers import BaseMoELayer
 from utils.datasets import get_dataset
-from utils.experience_buffer import MultiTaskExperienceBuffer
+from utils.experience_buffer import PrototypingExperienceBuffer
 from utils.logging.plotting import plot_core_metrics, plot_expert_dashboard
 from utils.pi_calculator import PICalculator
-from utils.strategies.backpropagation_strategies import SurpriseMinKStrategy
+from utils.strategies.backpropagation_strategies import (
+    ActivatedSurpriseMinKStrategy,
+    SurpriseMinKStrategy,
+)
 from utils.train_loops.base_train_loop import BaseTrainLoop
 from utils.train_loops.pilf_train_loop import PILFTrainLoop
 from utils.trainer import Trainer
@@ -42,6 +45,32 @@ def load_schedule(schedule_path: str) -> Dict[str, Any]:
         return schedule_module.schedule_config
     else:
         raise AttributeError(f"Schedule file {schedule_path} must contain either a 'SCHEDULE' or 'schedule_config' dictionary.")
+
+
+def log_and_plot_epoch(trainer: Trainer, model: nn.Module, output_dir: str, run_name: str, cycle: int, task_name: str, epoch: int):
+    """Generates and saves plots for the current state of training."""
+    print(f"--- Generating plots for epoch {epoch} of task {task_name} in cycle {cycle} ---")
+    
+    img_dir = os.path.join(output_dir, "img")
+    os.makedirs(img_dir, exist_ok=True)
+
+    # Core metrics
+    fig_core = plot_core_metrics(trainer.epoch_results, trainer.validation_history, run_name)
+    core_plot_filename = f"core_metrics_cycle_{cycle}_task_{task_name}_epoch_{epoch}.png"
+    core_plot_path = os.path.join(img_dir, core_plot_filename)
+    fig_core.savefig(core_plot_path)
+    plt.close(fig_core)
+
+    # Expert dashboard
+    moe_blocks = [block for block in model.blocks if isinstance(block.mlp, BaseMoELayer)]
+    if moe_blocks:
+        num_layers = len(moe_blocks)
+        num_experts = moe_blocks[0].mlp.num_experts
+        fig_expert = plot_expert_dashboard(trainer.epoch_results, num_layers, num_experts)
+        expert_plot_filename = f"expert_dashboard_cycle_{cycle}_task_{task_name}_epoch_{epoch}.png"
+        expert_plot_path = os.path.join(img_dir, expert_plot_filename)
+        fig_expert.savefig(expert_plot_path)
+        plt.close(fig_expert)
 
 def main():
     parser = argparse.ArgumentParser(description="PILF-2 Framework Training")
@@ -82,6 +111,8 @@ def main():
     strategy_components = []
     if args.update == "smk":
         strategy_components.append(SurpriseMinKStrategy(min_k=model_cfg.get("min_k", 1)))
+    elif args.update == "asmk":
+        strategy_components.append(ActivatedSurpriseMinKStrategy(min_k=model_cfg.get("min_k", 1)))
 
     run_name = f"{schedule_config['name']}-{args.router}-{args.update}-{time.strftime('%Y%m%d-%H%M%S')}"
     output_dir = f"output/{run_name}"
@@ -90,6 +121,8 @@ def main():
 
     if not args.no_tensorboard:
         subprocess.Popen(["tensorboard", "--logdir", "output"])
+        print("Waiting 3 seconds for TensorBoard to start...")
+        time.sleep(3)
 
     trainer = Trainer(
         model=model,
@@ -103,17 +136,19 @@ def main():
     )
 
     if model_cfg["router_type"] == "memory_gaussian_moe":
-        gating_config = model_cfg.get("gating_config", {})
+        gating_config = model_cfg["gating_config"]
         pilf_schedule_config = schedule_config.get("pilf_config", {})
         gating_config.update(pilf_schedule_config)
 
-        buffer_size = gating_config.pop("buffer_size", gating_config.get("total_buffer_size", 2048))
+        num_total_experts = sum(
+            b.mlp.num_experts for b in model.blocks
+            if hasattr(b, "mlp") and isinstance(b.mlp, BaseMoELayer)
+        )
 
-        all_task_names = list(set(task[0] for task in schedule_config["tasks"] if task[0] != "VALIDATE"))
-        experience_buffer = MultiTaskExperienceBuffer(
-            task_names=all_task_names,
-            total_buffer_size=buffer_size,
+        experience_buffer = PrototypingExperienceBuffer(
+            capacity=gating_config["total_buffer_size"],
             embed_dim=model_cfg["embed_dim"],
+            num_experts=num_total_experts,
             device=device,
         )
         train_loop = PILFTrainLoop(trainer, experience_buffer, gating_config)
@@ -131,31 +166,17 @@ def main():
             if task_name == "VALIDATE":
                 for val_task in schedule_config.get("val_datasets", []):
                     val_loader = DataLoader(datasets[val_task], batch_size=train_cfg["batch_size"], shuffle=False)
-                    trainer.validate(val_loader, trainer.global_step, cycle, val_task)
+                    buffer_to_pass = experience_buffer if model_cfg["router_type"] == "memory_gaussian_moe" else None
+                    trainer.validate(val_loader, trainer.global_step, cycle, val_task, experience_buffer=buffer_to_pass)
                 continue
 
             train_loader = DataLoader(datasets[task_name], batch_size=train_cfg["batch_size"], shuffle=True)
             for epoch in range(1, num_epochs + 1):
                 print(f"--- Cycle {cycle+1}, Task {task_name}, Epoch {epoch}/{num_epochs} ---")
                 train_loop.train_one_epoch(train_loader, epoch, task_name)
+                log_and_plot_epoch(trainer, model, output_dir, run_name, cycle + 1, task_name, epoch)
     
-    # Final logging and plotting
-    fig_core = plot_core_metrics(trainer.epoch_results, trainer.validation_history, run_name)
-    core_plot_path = os.path.join(output_dir, "img", "core_metrics_final.png")
-    os.makedirs(os.path.dirname(core_plot_path), exist_ok=True)
-    fig_core.savefig(core_plot_path)
-    plt.close(fig_core)
-
-    moe_blocks = [block for block in model.blocks if isinstance(block.mlp, BaseMoELayer)]
-    if moe_blocks:
-        num_layers = len(moe_blocks)
-        num_experts = moe_blocks[0].mlp.num_experts
-        fig_expert = plot_expert_dashboard(trainer.epoch_results, num_layers, num_experts)
-        expert_plot_path = os.path.join(output_dir, "img", "expert_dashboard_final.png")
-        os.makedirs(os.path.dirname(expert_plot_path), exist_ok=True)
-        fig_expert.savefig(expert_plot_path)
-        plt.close(fig_expert)
-
+    # Final checkpoint saving
     if schedule_config.get("num_cycles", 1) > 1 or len(schedule_config["tasks"]) > 1:
         trainer.save_checkpoint(run_name, epoch=schedule_config["tasks"][-1][1], is_final=True)
     

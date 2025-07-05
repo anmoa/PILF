@@ -27,7 +27,6 @@
 | `PILFTrainLoop` | `PILF-2` 模型的专用训练循环。 |
 | `StrategyComponent` | 所有策略（如学习率、反向传播）的基类。 |
 | `SurpriseMinKStrategy` | 基于 Surprise 过滤梯度的反向传播策略。 |
-| `PILRStrategy` | 预测完整性引导的学习率调节策略。 |
 | `StepResult` | 用于在日志中记录单个训练步骤指标的 `TypedDict`。 |
 
 ### 变量与参数名

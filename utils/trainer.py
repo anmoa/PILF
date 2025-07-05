@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from utils.logging.metrics_logger import TensorBoardLogger
-from utils.logging.types import StepResult
+from utils.logging.types import StepResult, ValidationResult
 from utils.pi_calculator import PICalculator
 from utils.strategies.base_strategy import StrategyComponent
 
@@ -34,7 +34,7 @@ class Trainer:
         self.writer = writer
         self.pi_calculator = pi_calculator
         self.epoch_results: List[StepResult] = []
-        self.validation_history: Dict[str, List[Dict[str, Any]]] = {}
+        self.validation_history: Dict[str, List[ValidationResult]] = {}
         self.global_step: int = 0
 
     def validate(
@@ -43,14 +43,15 @@ class Trainer:
         global_step: int,
         epoch: int,
         dataset_name: str = "Validation",
-    ) -> Dict[str, Any]:
+        experience_buffer: Optional[Any] = None,
+    ) -> ValidationResult:
         self.model.eval()
         total_loss, correct = 0.0, 0
 
         with torch.no_grad():
             for data, target in val_loader:
                 data, target = data.to(self.device), target.to(self.device)
-                output, _ = self.model(data)
+                output, _ = self.model(data, experience_buffer=experience_buffer)
                 loss = self.loss_fn(output, target)
                 total_loss += loss.item()
                 pred = output.argmax(dim=1, keepdim=True)
@@ -64,7 +65,7 @@ class Trainer:
             f"{dataset_name} set: Avg loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%"
         )
 
-        val_result = {
+        val_result: ValidationResult = {
             "global_step": global_step,
             "epoch": epoch,
             "loss": avg_loss,

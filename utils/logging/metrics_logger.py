@@ -11,6 +11,8 @@ class TensorBoardLogger:
     def log_metrics(
         self, metrics: Dict[str, Any], task_name: str, scope: str = "Train"
     ):
+        global_metrics = ["gating_loss", "routing_accuracy"]
+
         for key, value in metrics.items():
             if not isinstance(value, (int, float)) or key == "global_step":
                 continue
@@ -19,20 +21,22 @@ class TensorBoardLogger:
             category = "Metrics"
 
             if "loss" in key or "accuracy" in key or "pi_score" in key or "surprise" in key or "tau" in key:
-                category = "Core"
-            elif key.startswith("gating_"):
+                 if "gating" not in key and "routing" not in key:
+                    category = "Core"
+            elif key.startswith("gating_") or key.startswith("routing_"):
                 category = "Gating"
-                tag_key = tag_key.replace("Gating ", "")
+                tag_key = tag_key.replace("Gating ", "").replace("Routing ", "")
             elif key.startswith("expert_"):
                 category = "Expert"
                 tag_key = tag_key.replace("Expert ", "")
             elif "lr" in key or "sigma" in key:
                 category = "PILR"
-
-            if key.startswith("gating_"):
-                tag = f"{scope}/{category}/{tag_key}"
+            
+            if key in global_metrics:
+                tag = f"{scope}/Global/{category}/{tag_key}"
             else:
                 tag = f"{scope}/{task_name}/{category}/{tag_key}"
+
             self.writer.add_scalar(tag, value, self.global_step)
 
         self.writer.flush()

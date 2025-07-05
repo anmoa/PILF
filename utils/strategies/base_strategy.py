@@ -18,5 +18,6 @@ class StrategyComponent:
         pi_metrics: Dict[str, Any],
         all_gating_logits: Optional[Any] = None,
         all_top_indices: Optional[List[torch.Tensor]] = None,
+        activated_experts: Optional[Dict[int, List[int]]] = None,
     ) -> StepResult:
         raise NotImplementedError

@@ -100,9 +100,9 @@ class PILRStrategy(StrategyComponent):
         model: nn.Module,
         optimizer: optim.Optimizer,
         pi_metrics: Dict[str, Any],
-        all_routing_info: Optional[List[Dict[str, torch.Tensor]]] = None,
+        all_gating_logits: Optional[Any] = None,
         all_top_indices: Optional[List[torch.Tensor]] = None,
-        logits: Optional[torch.Tensor] = None,
+        activated_experts: Optional[Dict[int, List[int]]] = None,
     ) -> StepResult:
         if self.dual_mode:
             return self._apply_dual(optimizer, pi_metrics)

@@ -48,8 +48,10 @@ graph LR
         A[输入数据] --> B{PI_Calculator};
         A --> E{"模型 (VisionTransformer <br> GaussianMoELayer)"};
 
-        subgraph "主任务前向传播"
-            E -- "输入表征" --> GT{GatingTransformer};
+        subgraph "主任务前向传播 (检索增强)"
+            E -- "输入表征 q" --> BuildContext{"构建上下文序列"};
+            REB -- "检索历史经验" --> BuildContext;
+            BuildContext -- "[历史, q]" --> GT{GatingTransformer};
             GT -- "路由决策 (top_k)" --> Experts;
             Experts -- "最终输出" --> Loss;
         end
@@ -59,7 +61,7 @@ graph LR
 
         subgraph "元学习与记忆更新"
             B -- "Tau, Surprise" --> Curation{路由经验策展};
-            E -- "输入表征" --> Curation;
+            E -- "输入表征 q" --> Curation;
             SMK -- "min_k 专家索引" --> Curation;
             Curation -- "高价值经验" --> REB[RoutingExperienceBuffer];
 
@@ -73,7 +75,7 @@ graph LR
 
 PILF-2 训练包括三个阶段：
 
-1. **主任务优化与经验采集**: 输入数据通过 `VisionTransformer` 和 `GatingTransformer` 处理以激活 `top_k` 专家。计算 `expert_loss`，`Surprise` 用于 `SMK` 选择 `min_k` 专家进行更新。高价值路由事件（基于 `Tau` 和 `Surprise`）存储在 `RoutingExperienceBuffer` 中。
+1. **主任务优化与经验采集**: 输入数据通过 `VisionTransformer` 生成输入表征 `q`。此 `q` 用于从 `RoutingExperienceBuffer` 中检索相关的历史经验。然后将两者都提供给 `GatingTransformer` 以激活 `top_k` 专家。计算 `expert_loss`，`Surprise` 用于 `SMK` 选择 `min_k` 专家进行更新。高价值路由事件（基于 `Tau` 和 `Surprise`）存储在 `RoutingExperienceBuffer` 中。
 2. **门控网络策略优化**: `GatingTransformer` 定期从 `RoutingExperienceBuffer` 中采样的历史经验进行训练，以学习成功的路由决策，采用监督学习方法。
 3. **参数更新应用**: 主任务优化（SMK 筛选后）和门控网络优化产生的梯度分别应用于更新相应的模型参数。
 
@@ -113,9 +115,9 @@ uv pip install -e .[dev]
 
 | 脚本      | 主要目的           | 示例命令                                                                                                                              |
 | :-------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-| `main.py` | 运行所有类型的实验 | `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --lrs <lr_scheduler>`                      |
-| `main.py` | 从检查点恢复训练   | `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --lrs <lr_scheduler> --resume-from <ckpt>` |
-| `main.py` | 运行特定组合实验   | `python main.py --schedule schedules/marathon_v3.py --router memory_gauss --update smk --lrs pilr_d`                                    |
+| `main.py` | 运行所有类型的实验 | `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy>`                      |
+| `main.py` | 从检查点恢复训练   | `python main.py --schedule <schedule_path> --router <router_type> --update <update_strategy> --resume-from <ckpt>` |
+| `main.py` | 运行特定组合实验   | `python main.py --schedule marathon_v3 --router memory_gaussian --update smk`  |
 
 ---
 

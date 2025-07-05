@@ -1,5 +1,5 @@
 from .datasets import get_dataset
-from .experience_buffer import MultiTaskExperienceBuffer
+from .experience_buffer import PrototypingExperienceBuffer
 from .logging.types import StepResult, ValidationResult
 from .pi_calculator import PICalculator
 from .strategies.backpropagation_strategies import SurpriseMinKStrategy
@@ -10,7 +10,7 @@ from .trainer import Trainer
 
 __all__ = [
     "get_dataset",
-    "MultiTaskExperienceBuffer",
+    "PrototypingExperienceBuffer",
     "StepResult",
     "ValidationResult",
     "PICalculator",
