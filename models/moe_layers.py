@@ -147,45 +147,46 @@ class MemoryGaussianMoELayer(BaseMoELayer):
     def forward(self, x: torch.Tensor, experience_buffer: PrototypingExperienceBuffer | None = None, **kwargs) -> Tuple[torch.Tensor, Dict[str, Any]]:
         if experience_buffer is None:
             raise ValueError("MemoryGaussianMoELayer requires an experience_buffer.")
-        
+
         batch_size, num_tokens, in_features = x.shape
+        x_token = x
 
-        q_subjects = x.mean(dim=1)
-        
-        retrieved_history = experience_buffer.retrieve_similar(q_subjects, k=self.history_size)
-        
-        q_subjects_unsqueezed = q_subjects.unsqueeze(1)
+        q_subject = x.mean(dim=1)
+        retrieved_history = experience_buffer.retrieve_similar(q_subject, k=self.history_size)
 
-        gating_input_sequence = torch.cat([retrieved_history, q_subjects_unsqueezed], dim=1)
-        
-        gating_output_sequence = self.gating_transformer(gating_input_sequence)
-        
-        gating_logits = gating_output_sequence[:, -1, :]
-        
-        weights, top_indices = torch.topk(gating_logits, self.top_k, dim=-1)
-        weights = F.softmax(weights, dim=-1).to(x.dtype)
+        subject_dynamic_mus, subject_dynamic_log_sigmas = self.gating_transformer(
+            tgt=q_subject.unsqueeze(1), memory=retrieved_history
+        )
 
-        weights_expanded = weights.unsqueeze(1).expand(-1, num_tokens, -1)
-        top_indices_expanded = top_indices.unsqueeze(1).expand(-1, num_tokens, -1)
-        
-        x_flat = x.view(-1, in_features)
-        weights_flat = weights_expanded.reshape(-1, self.top_k)
-        top_indices_flat = top_indices_expanded.reshape(-1, self.top_k)
+        dynamic_mus = subject_dynamic_mus.expand(-1, num_tokens, -1, -1)
+        dynamic_log_sigmas = subject_dynamic_log_sigmas.expand(-1, num_tokens, -1, -1)
+
+        x_flat = x_token.reshape(-1, in_features)
+        dynamic_mus_flat = dynamic_mus.reshape(batch_size * num_tokens, self.num_experts, in_features)
+        dynamic_log_sigmas_flat = dynamic_log_sigmas.reshape(batch_size * num_tokens, self.num_experts, in_features)
+
+        dist = torch.distributions.Normal(dynamic_mus_flat, torch.exp(dynamic_log_sigmas_flat))
+        log_probs = dist.log_prob(x_flat.unsqueeze(1)).sum(dim=-1)
+
+        weights, top_indices = torch.topk(log_probs, self.top_k, dim=-1)
+        weights = F.softmax(weights, dim=-1,).to(x.dtype)
 
         y = torch.zeros_like(x_flat)
         for i, expert in enumerate(self.experts):
-            token_indices, expert_indices = (top_indices_flat == i).nonzero(as_tuple=True)
+            token_indices, expert_indices = (top_indices == i).nonzero(as_tuple=True)
             if token_indices.numel() > 0:
                 tokens_for_expert = x_flat[token_indices]
                 expert_output = expert(tokens_for_expert)
-                y.index_add_(0, token_indices, (weights_flat[token_indices, expert_indices, None] * expert_output))
+                y.index_add_(0, token_indices, (weights[token_indices, expert_indices, None] * expert_output))
 
         final_output = y.view(batch_size, num_tokens, -1)
 
         routing_info = {
-            "gating_logits": gating_logits,
-            "top_indices": top_indices,
-            "q_embedding": q_subjects.detach(),
+            "log_probs": log_probs.view(batch_size, num_tokens, -1),
+            "top_indices": top_indices.view(batch_size, num_tokens, -1),
+            "q_embedding": q_subject.detach(),
+            "gating_mus": dynamic_mus.detach(),
+            "gating_log_sigmas": dynamic_log_sigmas.detach(),
         }
 
         return final_output, routing_info
@@ -195,12 +196,16 @@ class MemoryGaussianMoELayer(BaseMoELayer):
         
         q_rehearsal_unsqueezed = q_rehearsal.unsqueeze(1)
         
-        gating_input_sequence = torch.cat([retrieved_history, q_rehearsal_unsqueezed], dim=1)
+        dynamic_mus, dynamic_log_sigmas = self.gating_transformer(tgt=q_rehearsal_unsqueezed, memory=retrieved_history)
         
-        gating_output_sequence = self.gating_transformer(gating_input_sequence)
-        
-        gating_logits = gating_output_sequence[:, -1, :]
+        final_mus = dynamic_mus.squeeze(1)
+        final_log_sigmas = dynamic_log_sigmas.squeeze(1)
 
-        loss = F.binary_cross_entropy_with_logits(gating_logits, a_rehearsal)
+        q_rehearsal_expanded = q_rehearsal.unsqueeze(1).expand(-1, self.num_experts, -1)
+        
+        dist = torch.distributions.Normal(final_mus, torch.exp(final_log_sigmas))
+        log_probs = dist.log_prob(q_rehearsal_expanded).sum(dim=-1)
+
+        loss = F.binary_cross_entropy_with_logits(log_probs, a_rehearsal)
         
         return loss

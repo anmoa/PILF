@@ -6,7 +6,7 @@
 
 > 不仅要训练你的模型，更要理解它的心智。
 
-> ⚠️ **警告：** 本代码库正在进行大规模重构。您可以参考策略，但请不要直接使用本仓库，它已经坏掉了。
+> ⚠️ 警告: 本项目已废弃。我们已在此验证SMK的功能分化，关于永续训练的更多尝试将在 [Tiny-ONN](https://github.com/dmf-archive/Tiny-ONN) 中继续。
 
 <p align="center">
     <a href="zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a>

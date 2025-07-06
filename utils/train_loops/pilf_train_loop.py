@@ -62,6 +62,7 @@ class PILFTrainLoop:
             None,
         )
         self.meta_learning_freq = pilf_config.get("meta_learning_freq", 1)
+        self.gating_loss_cache: Dict[Tuple[str, int], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = {}
 
     def train_one_epoch(
         self,
@@ -105,10 +106,9 @@ class PILFTrainLoop:
                     if min_k_indices_by_layer is not None:
                         for layer_idx, layer_info in enumerate(all_routing_info):
                             if layer_idx in min_k_indices_by_layer:
-                                q_embeddings = layer_info["q_embedding"]
                                 batch_size = data.shape[0]
                                 
-                                q_aggregated = q_embeddings.view(batch_size, -1, q_embeddings.shape[-1]).mean(dim=1)
+                                q_aggregated = layer_info["q_embedding"]
                                 
                                 min_k_indices = min_k_indices_by_layer[layer_idx]
                                 if not min_k_indices: continue
@@ -119,11 +119,11 @@ class PILFTrainLoop:
                                 offset = 0
                                 for b_idx, block in enumerate(self.model.blocks):
                                     if hasattr(block, "mlp") and "BaseMoELayer" in [c.__name__ for c in block.mlp.__class__.__mro__]:
-                                        if layer_idx == b_idx:
-                                            for sample_idx in range(batch_size):
-                                                global_indices = [idx + offset for idx in min_k_indices]
-                                                if global_indices:
-                                                    target_actions_multihot[sample_idx, global_indices] = 1.0
+                                        if layer_idx == b_idx and min_k_indices:
+                                            min_k_tensor = torch.tensor(min_k_indices, device=self.device)
+                                            global_indices = min_k_tensor + offset
+                                            sample_indices = torch.arange(batch_size, device=self.device).unsqueeze(1)
+                                            target_actions_multihot[sample_indices, global_indices] = 1.0
                                         offset += block.mlp.num_experts
 
 
@@ -139,7 +139,13 @@ class PILFTrainLoop:
             gating_loss = torch.tensor(0.0, device=self.device)
             if self.gating_optimizer and self.experience_buffer.current_size > 0 and (i + 1) % self.meta_learning_freq == 0:
                 self.gating_optimizer.zero_grad()
-                q_rehearsal, a_rehearsal, sampled_indices = self.experience_buffer.sample(self.experience_buffer.current_size)
+                
+                cache_key = (task_name, epoch)
+                if cache_key in self.gating_loss_cache:
+                    q_rehearsal, a_rehearsal, sampled_indices = self.gating_loss_cache[cache_key]
+                else:
+                    q_rehearsal, a_rehearsal, sampled_indices = self.experience_buffer.sample(self.experience_buffer.current_size)
+                    self.gating_loss_cache[cache_key] = (q_rehearsal, a_rehearsal, sampled_indices)
 
                 moe_blocks = [
                     b
@@ -183,16 +189,14 @@ class PILFTrainLoop:
 
                     for layer_idx, layer_info in enumerate(all_routing_info):
                         if layer_idx in min_k_indices_all_layers and "top_indices" in layer_info:
-                            top_indices_per_subject = layer_info["top_indices"]
-                            min_k_set_for_layer = set(min_k_indices_all_layers[layer_idx])
-                        
-                        batch_size = top_indices_per_subject.shape[0]
-                        
-                        for i in range(batch_size):
-                            top_k_set_for_subject = set(top_indices_per_subject[i].tolist())
-                            total_intersection += len(top_k_set_for_subject.intersection(min_k_set_for_layer))
-                        
-                        total_top_k += top_indices_per_subject.numel()
+                            top_indices_per_token = layer_info["top_indices"]
+                            min_k_indices_for_layer = min_k_indices_all_layers.get(layer_idx)
+                            if min_k_indices_for_layer:
+                                min_k_set_for_layer = set(min_k_indices_for_layer)
+                                min_k_tensor = torch.tensor(list(min_k_set_for_layer), device=top_indices_per_token.device)
+                                intersection = torch.isin(top_indices_per_token, min_k_tensor).sum()
+                                total_intersection += intersection.item()
+                            total_top_k += top_indices_per_token.numel()
                     
                     if total_top_k > 0:
                         routing_accuracy = 100.0 * total_intersection / total_top_k

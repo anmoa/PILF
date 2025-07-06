@@ -12,16 +12,28 @@ class GatingTransformer(nn.Module):
         dropout: float = 0.1,
     ):
         super().__init__()
-        encoder_layer = nn.TransformerEncoderLayer(
+        self.embed_dim = embed_dim
+        self.num_experts = num_experts
+
+        decoder_layer = nn.TransformerDecoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
             dim_feedforward=embed_dim * 4,
             dropout=dropout,
             batch_first=True,
         )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.out_proj = nn.Linear(embed_dim, num_experts)
+        self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
+        self.out_proj = nn.Linear(embed_dim, num_experts * 2 * embed_dim)
 
-    def forward(self, src: torch.Tensor) -> torch.Tensor:
-        encoded_sequence = self.encoder(src)
-        return self.out_proj(encoded_sequence)
+    def forward(self, tgt: torch.Tensor, memory: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        decoded_sequence = self.decoder(tgt=tgt, memory=memory)
+        
+        params = self.out_proj(decoded_sequence)
+        
+        b, s, _ = tgt.shape
+        params = params.view(b, s, self.num_experts, 2, self.embed_dim)
+        
+        mus = params[..., 0, :]
+        log_sigmas = params[..., 1, :]
+        
+        return mus, log_sigmas

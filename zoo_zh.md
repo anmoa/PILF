@@ -22,12 +22,10 @@
 | ~0.46M | ~0.46M | ~0.46M | ~0.46M | ~0.46M |
 | <img src="output/marathon-v3/img/20250628T105444-marathon_v3-large_moe_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T112443-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T122235-marathon_v3-large_pisa_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250628T152659-marathon_v3-large_gpil_mnist-Metrics.png" style="max-width:200px;"> | <img src="output/marathon-v3/img/20250629T054009-marathon_v3-large_gpil_exp_mnist-Metrics.png" style="max-width:200px;"> |
 
-### 最新架构：16x4 GaussMoE-SMK-PILR-D
+### 门控 Transformer 路由实验
 
-我们正在清理和精简旧的测试代码。这是尚未引入生成式记忆重构系统的结果——虽然理论上我们可以通过引入样本采样来重新用一个混合样本集训练门控路由网络来直接保持多任务能力，但考虑到我们的最终目标是生成式记忆回放，我们决定暂时跳过这个部分，敬请期待更多更新。
+*备注：Gemini 的代码生成存在严重幻觉，将原本正确的高斯路由重构为了线性版本。*
 
-| **16x4 GaussMoE-SMK-PILR-D** |
-| :--:|
-| ~0.46M |
-|[TensorBoard 日志](output/marathon_v3/large_gauss_moe_smk_pilr_d/20250703-075944/runs/20250703-075944/)|
-| <img src="output/marathon_v3/large_gauss_moe_smk_pilr_d/20250703-075944/img/screen-shot-1.png" style="max-width:200px;"> |
+| **高斯 Transformer 路由** | **线性 Transformer 路由** |
+| :--:| :--:|
+| <img src="output/marathon_v3-memory_gaussian-smk-20250706-113734/img/expert_dashboard_cycle_3_task_MNIST_epoch_2.png" style="max-width:200px;"> | <img src="output/marathon_v3-memory_gaussian-smk-20250706-115348/img/expert_dashboard_cycle_1_task_FashionMNIST_epoch_3.png" style="max-width:200px;"> |

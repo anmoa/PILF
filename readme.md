@@ -6,7 +6,7 @@
 
 > "Don't just train your model, understand its mind."
 
-> ⚠️ **Warning:** This repository is undergoing a massive refactoring. You may refer to the strategies, but please do not use this repository directly as it is currently broken.
+> ⚠️ **Warning:** This project is deprecated. We have validated the functional differentiation of SMK here, and further attempts at perpetual training will continue in [Tiny-ONN](https://github.com/dmf-archive/Tiny-ONN).
 
 <p align="center">
     <a href="zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
