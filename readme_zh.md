@@ -6,8 +6,6 @@
 
 > 不仅要训练你的模型，更要理解它的心智。
 
-> ⚠️ 警告: 本项目已废弃。我们已在此验证SMK的功能分化，关于永续训练的更多尝试将在 [Tiny-ONN](https://github.com/dmf-archive/Tiny-ONN) 中继续。
-
 <p align="center">
     <a href="zoo_zh.md">[模型动物园]</a> | <a href="./readme.md">[English]</a>
 </p>
@@ -84,6 +82,13 @@ PILF-2 训练包括三个阶段：
 ### 动态 Top-K
 
 该机制将根据 `Surprise` 动态调整激活的专家数量 `k` (`k = g(Surprise)`)。简单的任务将需要更少的专家，而复杂的任务则会动态调动更多。
+
+近期的学术研究已经为这个问题提供了非常出色的、经过充分验证的解决方案。因此，我们决定暂停在这一特定方向上的内部实验，并推荐所有对动态专家路由感兴趣的研究者参考以下工作：
+
+- **论文:** [Dynamic Mixture of Experts: An Auto-Tuning Approach for Efficient Transformer Models (Guo et al., 2024)](https://arxiv.org/abs/2405.14297)
+- **代码:** [https://github.com/LINs-lab/DynMoE](https://github.com/LINs-lab/DynMoE)
+
+`DynMoE` 框架提供了一个强大的、可自动调整激活专家数量的机制，与PILF的动态策略哲学高度一致。我们未来的工作将考虑在类似`DynMoE`的成熟动态路由机制之上，集成`SMK`等更新策略。
 
 ### 动态 Schedules
 

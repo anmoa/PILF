@@ -6,8 +6,6 @@
 
 > "Don't just train your model, understand its mind."
 
-> ⚠️ **Warning:** This project is deprecated. We have validated the functional differentiation of SMK here, and further attempts at perpetual training will continue in [Tiny-ONN](https://github.com/dmf-archive/Tiny-ONN).
-
 <p align="center">
     <a href="zoo.md">[Model Zoo]</a> | <a href="readme_zh.md">[中文]</a>
 </p>
@@ -83,7 +81,14 @@ PILF-2 training involves three phases:
 
 ### Dynamic Top-K
 
-This mechanism will dynamically scale the number of activated experts, `k`, based on `Surprise` (`k = g(Surprise)`). Simple tasks will require fewer experts, while complex tasks will dynamically mobilize more.
+This mechanism will dynamically adjust the number of activated experts, `k`, based on `Surprise` (`k = g(Surprise)`). Simple tasks will require fewer experts, while complex tasks will dynamically mobilize more.
+
+Recent academic research has already provided excellent, well-validated solutions to this problem. Therefore, we have decided to pause our internal experiments in this specific direction and recommend that all researchers interested in dynamic expert routing refer to the following work:
+
+- **Paper:** [Dynamic Mixture of Experts: An Auto-Tuning Approach for Efficient Transformer Models (Guo et al., 2024)](https://arxiv.org/abs/2405.14297)
+- **Code:** [https://github.com/LINs-lab/DynMoE](https://github.com/LINs-lab/DynMoE)
+
+The `DynMoE` framework provides a powerful mechanism for automatically adjusting the number of activated experts, which aligns well with PILF's philosophy of dynamic strategies. Our future work will consider integrating update strategies like `SMK` on top of mature dynamic routing mechanisms similar to `DynMoE`.
 
 ### Dynamic Schedules
 
